@@ -1,0 +1,122 @@
+{
+  "id": "moonlit-cottage",
+  "title": "Moonlit Mountain Cottage",
+  "nativeTitle": "Above the Clouds",
+  "region": "Mountain Retreat",
+  "badge": "Mountain Cottage \u00b7 Drizzle",
+  "subtitle": "Gentle rain above the clouds \u00b7 Click the lanterns or coffee",
+  "soundProfile": "mountain_night",
+  "width": 1672,
+  "height": 941,
+  "aspect": 1.776833,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "rain": 0.22,
+    "fog": 0.25,
+    "clouds": 0.0,
+    "mist": 0.3,
+    "fireflies": false,
+    "stars": false,
+    "pendulumLantern": false,
+    "potSteam": false,
+    "cupSteam": {
+      "size": [0.055, 0.145],
+      "opacity": 0.65
+    },
+    "mistColor": "0x91acd1"
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/moonlit-cottage/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/moonlit-cottage/layer_1_mid_far.png",
+      "z": -1.15,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/moonlit-cottage/layer_2_midground.png",
+      "z": -0.3,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/moonlit-cottage/layer_3_near_indoor.png",
+      "z": 0.45,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/moonlit-cottage/layer_4_foreground.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/moonlit-cottage/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/moonlit-cottage/mask_env.png",
+    "glow": "assets/scenes/moonlit-cottage/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.183,
+      0.035
+    ],
+    "hangingLanternCenter": [
+      0.187,
+      0.167
+    ],
+    "stoneLanternCenter": [
+      0.608,
+      0.811
+    ],
+    "teacupSteam": [
+      0.467,
+      0.781
+    ],
+    "teapotSpout": [
+      0.467,
+      0.784
+    ],
+    "pondCenter": [
+      0.0,
+      0.0
+    ],
+    "moonCenter": [
+      0.893,
+      0.11
+    ]
+  },
+  "regions": {
+    "water": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "skyMaxV": 0.32,
+    "lantern1": [
+      0.151,
+      0.225,
+      0.102,
+      0.225
+    ],
+    "lantern2": [
+      0.577,
+      0.639,
+      0.754,
+      0.863
+    ],
+    "mistBand": [
+      0.22,
+      0.99,
+      0.32,
+      0.57
+    ]
+  }
+}

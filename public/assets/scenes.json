@@ -1,0 +1,52 @@
+{
+  "scenes": [
+    {
+      "id": "teahouse",
+      "title": "Mountain Teahouse at Dusk",
+      "nativeTitle": "\u5c71\u8336\u5c4b \u00b7 \u9ec4\u660f",
+      "region": "Japan",
+      "badge": "Japan \u00b7 Dusk",
+      "manifest": "assets/scenes/teahouse/manifest.json"
+    },
+    {
+      "id": "moonlit-cottage",
+      "title": "Moonlit Mountain Cottage",
+      "nativeTitle": "Above the Clouds",
+      "region": "Mountain Retreat",
+      "badge": "Mountain Cottage \u00b7 Drizzle",
+      "manifest": "assets/scenes/moonlit-cottage/manifest.json"
+    },
+    {
+      "id": "pnw",
+      "title": "Olympic Cedar Cabin",
+      "nativeTitle": "Pacific Northwest \u00b7 Dawn",
+      "region": "America",
+      "badge": "America \u00b7 Foggy Dawn",
+      "manifest": "assets/scenes/pnw/manifest.json"
+    },
+    {
+      "id": "darjeeling",
+      "title": "Darjeeling Cloud Bungalow",
+      "nativeTitle": "\u0926\u093e\u0930\u094d\u091c\u093f\u0932\u093f\u0902\u0917 \u00b7 \u092d\u094b\u0930",
+      "region": "India",
+      "badge": "Himalayas \u00b7 Dawn Clouds",
+      "manifest": "assets/scenes/darjeeling/manifest.json"
+    },
+    {
+      "id": "kerala",
+      "title": "Kerala Monsoon Veranda",
+      "nativeTitle": "\u0d15\u0d47\u0d30\u0d33\u0d02 \u00b7 \u0d2e\u0d34\u0d15\u0d4d\u0d15\u0d3e\u0d32\u0d02",
+      "region": "India",
+      "badge": "India \u00b7 Rainy Night",
+      "manifest": "assets/scenes/kerala/manifest.json"
+    },
+    {
+      "id": "summer-terrace",
+      "title": "Summer Night on the Terrace",
+      "nativeTitle": "A Rooftop Sleepover",
+      "region": "India",
+      "badge": "India \u00b7 Terrace",
+      "manifest": "assets/scenes/summer-terrace/manifest.json"
+    }
+  ]
+}

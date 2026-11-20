@@ -1,0 +1,118 @@
+{
+  "id": "pnw",
+  "title": "Olympic Cedar Cabin",
+  "nativeTitle": "Pacific Northwest \u00b7 Dawn",
+  "region": "America",
+  "badge": "America \u00b7 Foggy Dawn",
+  "subtitle": "Forest fog & dawn drizzle \u00b7 Click banker's lamp, lake, or coffee",
+  "soundProfile": "america_pnw",
+  "width": 1376,
+  "height": 768,
+  "aspect": 1.791667,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "rain": 0.34,
+    "fog": 0.82,
+    "clouds": 0.52,
+    "mist": 0.34,
+    "fireflies": false,
+    "stars": false,
+    "pendulumLantern": false,
+    "mistColor": "0xc6d5e0",
+    "cloudColor": "0xf0d2c4"
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/pnw/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/pnw/layer_1_mid_far.png",
+      "z": -1.15,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/pnw/layer_2_midground.png",
+      "z": -0.3,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/pnw/layer_3_near_indoor.png",
+      "z": 0.45,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/pnw/layer_4_foreground.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/pnw/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/pnw/mask_env.png",
+    "glow": "assets/scenes/pnw/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.205,
+      0.565
+    ],
+    "hangingLanternCenter": [
+      0.205,
+      0.565
+    ],
+    "stoneLanternCenter": [
+      0.205,
+      0.565
+    ],
+    "teacupSteam": [
+      0.431,
+      0.768
+    ],
+    "teapotSpout": [
+      0.431,
+      0.768
+    ],
+    "pondCenter": [
+      0.575,
+      0.495
+    ],
+    "moonCenter": [
+      0.56,
+      0.24
+    ]
+  },
+  "regions": {
+    "water": [
+      0.46,
+      0.7,
+      0.42,
+      0.59
+    ],
+    "skyMaxV": 0.38,
+    "lantern1": [
+      0.11,
+      0.29,
+      0.48,
+      0.72
+    ],
+    "lantern2": [
+      0.11,
+      0.29,
+      0.48,
+      0.72
+    ],
+    "mistBand": [
+      0.24,
+      0.88,
+      0.46,
+      0.75
+    ]
+  }
+}

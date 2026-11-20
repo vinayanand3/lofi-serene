@@ -1,0 +1,118 @@
+{
+  "id": "teahouse",
+  "title": "Mountain Teahouse at Dusk",
+  "nativeTitle": "\u5c71\u8336\u5c4b \u00b7 \u9ec4\u660f",
+  "region": "Japan",
+  "badge": "Japan \u00b7 Dusk",
+  "subtitle": "Move cursor for parallax \u00b7 Click lantern, pond, or tea",
+  "soundProfile": "japan",
+  "width": 1376,
+  "height": 768,
+  "aspect": 1.791667,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "rain": 0.0,
+    "fog": 0.0,
+    "clouds": 0.0,
+    "mist": 0.22,
+    "fireflies": true,
+    "stars": true,
+    "pendulumLantern": true,
+    "mistColor": "0x9cb4d4",
+    "cloudColor": "0xa8b8d8"
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/teahouse/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/teahouse/layer_1_mid_far.png",
+      "z": -1.15,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/teahouse/layer_2_midground.png",
+      "z": -0.3,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/teahouse/layer_3_near_indoor.png",
+      "z": 0.45,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/teahouse/layer_4_foreground.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/teahouse/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/teahouse/mask_env.png",
+    "glow": "assets/scenes/teahouse/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.256,
+      0.088
+    ],
+    "hangingLanternCenter": [
+      0.256,
+      0.245
+    ],
+    "stoneLanternCenter": [
+      0.34,
+      0.558
+    ],
+    "teacupSteam": [
+      0.404,
+      0.818
+    ],
+    "teapotSpout": [
+      0.438,
+      0.8
+    ],
+    "pondCenter": [
+      0.69,
+      0.72
+    ],
+    "moonCenter": [
+      0.79,
+      0.15
+    ]
+  },
+  "regions": {
+    "water": [
+      0.5,
+      0.9,
+      0.55,
+      0.88
+    ],
+    "skyMaxV": 0.42,
+    "lantern1": [
+      0.216,
+      0.298,
+      0.105,
+      0.375
+    ],
+    "lantern2": [
+      0.3,
+      0.38,
+      0.51,
+      0.61
+    ],
+    "mistBand": [
+      0.36,
+      0.98,
+      0.38,
+      0.66
+    ]
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "id": "kerala",
+  "title": "Kerala Monsoon Veranda",
+  "nativeTitle": "\u0d15\u0d47\u0d30\u0d33\u0d02 \u00b7 \u0d2e\u0d34\u0d15\u0d4d\u0d15\u0d3e\u0d32\u0d02",
+  "region": "India",
+  "badge": "India \u00b7 Rainy Night",
+  "subtitle": "Monsoon on the backwaters \u00b7 Click the lamp, water, or coffee",
+  "soundProfile": "india_monsoon",
+  "width": 1672,
+  "height": 941,
+  "aspect": 1.776833,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "rain": 0.52,
+    "rainRenderOrder": 3,
+    "fog": 0.0,
+    "clouds": 0.0,
+    "mist": 0.0,
+    "fireflies": false,
+    "stars": false,
+    "pendulumLantern": false,
+    "sourceColor": true,
+    "naturalWater": true,
+    "parallaxStrength": 0.48,
+    "depthRelief": 0.018,
+    "lanternHalo": 0.33,
+    "secondaryGlow": false,
+    "cupSteam": {
+      "size": [
+        0.051,
+        0.145
+      ],
+      "opacity": 0.7
+    },
+    "potSteam": {
+      "size": [
+        0.04,
+        0.123
+      ],
+      "opacity": 0.6
+    }
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/kerala/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/kerala/layer_1_mid_far.png",
+      "z": -1.15,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/kerala/layer_2_midground.png",
+      "z": -0.3,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/kerala/layer_3_near_indoor.png",
+      "z": 0.45,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/kerala/layer_4_foreground.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/kerala/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/kerala/mask_env.png",
+    "glow": "assets/scenes/kerala/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.09,
+      0.087
+    ],
+    "hangingLanternCenter": [
+      0.134,
+      0.176
+    ],
+    "stoneLanternCenter": [
+      0.0,
+      0.0
+    ],
+    "teacupSteam": [
+      0.305,
+      0.774
+    ],
+    "teapotSpout": [
+      0.14,
+      0.73
+    ],
+    "pondCenter": [
+      0.478,
+      0.669
+    ],
+    "moonCenter": [
+      0.58,
+      0.24
+    ]
+  },
+  "regions": {
+    "water": [
+      0.17,
+      0.6,
+      0.516,
+      0.81
+    ],
+    "waterOutline": [
+      [
+        0.168,
+        0.518
+      ],
+      [
+        0.997,
+        0.517
+      ],
+      [
+        0.998,
+        0.872
+      ],
+      [
+        0.425,
+        0.875
+      ],
+      [
+        0.42,
+        0.811
+      ],
+      [
+        0.169,
+        0.809
+      ]
+    ],
+    "skyMaxV": 0.42,
+    "lantern1": [
+      0.099,
+      0.169,
+      0.119,
+      0.208
+    ],
+    "lantern2": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "mistBand": [
+      0.23,
+      0.96,
+      0.45,
+      0.59
+    ]
+  }
+}

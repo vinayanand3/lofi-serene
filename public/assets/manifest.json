@@ -1,0 +1,74 @@
+{
+  "title": "Mountain Teahouse at Dusk",
+  "width": 1376,
+  "height": 768,
+  "aspect": 1.791667,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_mountains",
+      "file": "assets/layer_1_mid_mountains.png",
+      "z": -1.15,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_cliff_garden",
+      "file": "assets/layer_2_cliff_garden.png",
+      "z": -0.3,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_veranda_tea",
+      "file": "assets/layer_3_veranda_tea.png",
+      "z": 0.45,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_eaves_lantern",
+      "file": "assets/layer_4_eaves_lantern.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/depth_map.png",
+  "masks": {
+    "env": "assets/mask_env.png",
+    "glow": "assets/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.256,
+      0.088
+    ],
+    "hangingLanternCenter": [
+      0.256,
+      0.245
+    ],
+    "stoneLanternCenter": [
+      0.34,
+      0.558
+    ],
+    "teacupSteam": [
+      0.404,
+      0.818
+    ],
+    "teapotSpout": [
+      0.438,
+      0.8
+    ],
+    "pondCenter": [
+      0.69,
+      0.72
+    ],
+    "moonCenter": [
+      0.79,
+      0.15
+    ]
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "id": "summer-terrace",
+  "title": "Summer Night on the Terrace",
+  "nativeTitle": "A Rooftop Sleepover",
+  "region": "India",
+  "badge": "India \u00b7 Terrace",
+  "subtitle": "A rooftop sleepover under the summer stars",
+  "soundProfile": "india_summer",
+  "width": 1672,
+  "height": 941,
+  "aspect": 1.776833,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "sourceColor": true,
+    "stars": true,
+    "moonGlow": 0.014,
+    "starLuma": [
+      0.08,
+      0.4
+    ],
+    "mist": 0.0,
+    "cupSteam": false,
+    "potSteam": false,
+    "secondaryGlow": false,
+    "parallaxStrength": 0.42,
+    "depthRelief": 0.012,
+    "lanternHalo": 0.085,
+    "sleeperBreath": [
+      [
+        0.453,
+        0.716,
+        0.038,
+        0.042
+      ],
+      [
+        0.584,
+        0.665,
+        0.037,
+        0.036
+      ]
+    ],
+    "awakeGestures": {
+      "chuckle": [
+        0.362,
+        0.619,
+        0.0062,
+        0.014
+      ],
+      "point": [
+        0.471,
+        0.481,
+        0.036,
+        0.071
+      ],
+      "feet": [
+        0.685,
+        0.586,
+        0.036,
+        0.05
+      ]
+    },
+    "foliageSway": 0.0054,
+    "foliageSpeed": 0.58
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/summer-terrace/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/summer-terrace/layer_1_mid_far.png",
+      "z": -1.95,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/summer-terrace/layer_2_midground.png",
+      "z": 0.68,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/summer-terrace/layer_3_near_indoor.png",
+      "z": 0.69,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/summer-terrace/layer_4_foreground.png",
+      "z": 0.82,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/summer-terrace/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/summer-terrace/mask_env.png",
+    "glow": "assets/scenes/summer-terrace/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.121,
+      0.38
+    ],
+    "hangingLanternCenter": [
+      0.12,
+      0.397
+    ],
+    "stoneLanternCenter": [
+      0.0,
+      0.0
+    ],
+    "teacupSteam": [
+      0.0,
+      0.0
+    ],
+    "teapotSpout": [
+      0.0,
+      0.0
+    ],
+    "pondCenter": [
+      0.0,
+      0.0
+    ],
+    "moonCenter": [
+      0.808,
+      0.127
+    ]
+  },
+  "regions": {
+    "water": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "skyMaxV": 0.37,
+    "lantern1": [
+      0.113,
+      0.127,
+      0.383,
+      0.407
+    ],
+    "lanternHaloRadii": [
+      0.013,
+      0.027
+    ],
+    "lantern2": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "mistBand": [
+      0.2,
+      0.8,
+      0.35,
+      0.45
+    ],
+    "foliageZones": [
+      [
+        0.049,
+        0.633,
+        0.031,
+        0.039
+      ],
+      [
+        0.181,
+        0.5,
+        0.037,
+        0.068
+      ],
+      [
+        0.221,
+        0.54,
+        0.023,
+        0.032
+      ],
+      [
+        0.802,
+        0.503,
+        0.036,
+        0.058
+      ],
+      [
+        0.832,
+        0.561,
+        0.014,
+        0.037
+      ],
+      [
+        0.953,
+        0.629,
+        0.041,
+        0.058
+      ]
+    ]
+  }
+}

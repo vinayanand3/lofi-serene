@@ -1,0 +1,13 @@
+[project]
+name = "lofi-diorama-pipeline"
+version = "0.1.0"
+description = "Local Apple Silicon MPS Depth-Anything-V2, layer slicing, inpainting, and semantic mask pipeline for Mountain Teahouse at Dusk"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "torch>=2.3.0",
+    "transformers>=4.44.0",
+    "opencv-python>=4.10.0",
+    "pillow>=10.4.0",
+    "numpy>=1.26.0",
+    "scipy>=1.13.0",
+]

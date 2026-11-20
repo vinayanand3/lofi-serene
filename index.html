@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>山茶屋 · Mountain Teahouse at Dusk — 2.5D Lo-Fi Diorama</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="stage" aria-label="Interactive 2.5D Lo-Fi Diorama">
+      <canvas id="diorama-canvas"></canvas>
+
+      <header class="title-card" aria-label="Scene title">
+        <div id="title-native" class="title-jp" lang="ja">山茶屋 · 黄昏</div>
+        <h1 id="title-en" class="title-en">Mountain Teahouse at Dusk</h1>
+        <p id="title-sub" class="subtitle">Move cursor for parallax · Click lantern, pond, or tea</p>
+      </header>
+
+      <div
+        id="scene-switcher"
+        class="scene-switcher"
+        role="toolbar"
+        focusgroup="toolbar wrap"
+        aria-label="Choose diorama scene"
+        aria-controls="diorama-canvas"
+      ></div>
+
+      <p id="toast" class="toast" role="status" aria-live="polite"></p>
+
+      <!-- Minimal bottom-right corner launcher (keeps foreground scene 100% unobstructed) -->
+      <div class="corner-launcher">
+        <button
+          id="btn-quick-pause"
+          class="corner-btn"
+          type="button"
+          aria-label="Pause scene animation"
+          title="Pause or resume scene animation"
+        >
+          <span aria-hidden="true">❚❚</span>
+        </button>
+        <button
+          id="btn-controls-trigger"
+          class="corner-btn corner-btn--primary"
+          type="button"
+          popovertarget="controls-popover"
+          aria-controls="controls-popover"
+          aria-expanded="false"
+        >
+          <span class="dot" aria-hidden="true"></span>
+          <span>Controls</span>
+        </button>
+      </div>
+
+      <!-- On-demand top-layer Controls Popover (Esc or click outside to light-dismiss) -->
+      <aside
+        id="controls-popover"
+        class="controls-popover"
+        popover="auto"
+        aria-label="Diorama controls"
+      >
+        <div class="popover-header">
+          <span class="popover-title">Controls</span>
+          <button
+            type="button"
+            class="popover-close"
+            popovertarget="controls-popover"
+            popovertargetaction="hide"
+            aria-label="Close controls"
+          >
+            ✕
+          </button>
+        </div>
+
+        <section class="control-section" aria-label="Soundscape">
+          <h2 class="section-label">Soundscape</h2>
+          <div class="control-row">
+            <button
+              id="btn-ambience"
+              class="hud-btn"
+              type="button"
+              aria-pressed="false"
+              title="Toggle spatial breeze, rain, stream, and chimes"
+            >
+              <span class="dot" aria-hidden="true"></span>
+              <span>Ambience</span>
+            </button>
+            <button
+              id="btn-radio"
+              class="hud-btn"
+              type="button"
+              aria-pressed="true"
+              title="Toggle YouTube Lo-Fi Radio music"
+            >
+              <span class="dot" aria-hidden="true"></span>
+              <span>Lo-Fi Radio</span>
+            </button>
+          </div>
+          <div class="yt-radio-bar">
+            <label class="yt-vol-label" for="radio-volume">
+              <span>Volume</span>
+              <input
+                id="radio-volume"
+                class="yt-vol-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="70"
+                aria-label="Lo-Fi Radio volume"
+              />
+            </label>
+            <a
+              id="yt-source-link"
+              class="yt-link"
+              href="https://www.youtube.com/watch?v=t8yVk0bm684"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open current music source on YouTube"
+            >
+              ♪ YouTube ↗
+            </a>
+          </div>
+          <form id="yt-url-form" class="yt-url-form" autocomplete="off">
+            <input
+              id="yt-url-input"
+              class="yt-url-input"
+              type="text"
+              inputmode="url"
+              placeholder="Paste any YouTube link…"
+              aria-label="YouTube music link"
+            />
+            <button class="yt-url-submit" type="submit">Play</button>
+          </form>
+        </section>
+
+        <section class="control-section" aria-label="Atmosphere and motion">
+          <h2 class="section-label">Atmosphere &amp; Motion</h2>
+          <div class="control-row">
+            <button
+              id="btn-mood"
+              class="hud-btn"
+              type="button"
+              title="Cycle lighting mood"
+            >
+              <span>Mood: Default</span>
+            </button>
+            <button
+              id="btn-drift"
+              class="hud-btn"
+              type="button"
+              aria-pressed="true"
+              title="Toggle gentle automatic camera drift"
+            >
+              <span class="dot" aria-hidden="true"></span>
+              <span>Auto Drift</span>
+            </button>
+          </div>
+          <button
+            id="btn-pause"
+            class="hud-btn hud-btn--full"
+            type="button"
+            title="Pause or resume all scene animation"
+          >
+            <span>Pause</span>
+          </button>
+        </section>
+      </aside>
+
+      <div id="yt-radio-wrap" class="yt-radio-wrap" aria-hidden="true">
+        <div id="yt-radio-host"></div>
+      </div>
+
+      <div id="loading" class="loading-overlay">
+        <div class="loading-inner">
+          <div class="loading-lantern"></div>
+          <p>Warming the teahouse…</p>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

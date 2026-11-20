@@ -1,0 +1,289 @@
+{
+  "id": "darjeeling",
+  "title": "Darjeeling Cloud Bungalow",
+  "nativeTitle": "\u0926\u093e\u0930\u094d\u091c\u093f\u0932\u093f\u0902\u0917 \u00b7 \u092d\u094b\u0930",
+  "region": "India",
+  "badge": "Himalayas \u00b7 Dawn Clouds",
+  "subtitle": "Drifting dawn clouds \u00b7 Click the lanterns or tea",
+  "soundProfile": "india_himalaya",
+  "width": 1672,
+  "height": 941,
+  "aspect": 1.776833,
+  "depthModel": "depth-anything/Depth-Anything-V2-Large-hf",
+  "effects": {
+    "rain": 0.0,
+    "fog": 0.0,
+    "clouds": 0.0,
+    "mist": 0.0,
+    "cloudDrift": 0.016,
+    "fireflies": false,
+    "stars": false,
+    "pendulumLantern": false,
+    "potSteam": false,
+    "cupSteam": {
+      "size": [
+        0.05,
+        0.135
+      ],
+      "opacity": 0.6
+    },
+    "depthRelief": 0.018,
+    "parallaxStrength": 0.58,
+    "lanternHalo": 0.35,
+    "sourceColor": true
+  },
+  "layers": [
+    {
+      "id": "layer_0_sky_valley",
+      "file": "assets/scenes/darjeeling/layer_0_sky_valley.png",
+      "z": -2.1,
+      "parallax": 0.18
+    },
+    {
+      "id": "layer_1_mid_far",
+      "file": "assets/scenes/darjeeling/layer_1_mid_far.png",
+      "z": -1.45,
+      "parallax": 0.42
+    },
+    {
+      "id": "layer_2_midground",
+      "file": "assets/scenes/darjeeling/layer_2_midground.png",
+      "z": 0.4,
+      "parallax": 0.7
+    },
+    {
+      "id": "layer_3_near_indoor",
+      "file": "assets/scenes/darjeeling/layer_3_near_indoor.png",
+      "z": 0.42,
+      "parallax": 0.96
+    },
+    {
+      "id": "layer_4_foreground",
+      "file": "assets/scenes/darjeeling/layer_4_foreground.png",
+      "z": 1.1,
+      "parallax": 1.24
+    }
+  ],
+  "depthMap": "assets/scenes/darjeeling/depth_map.png",
+  "masks": {
+    "env": "assets/scenes/darjeeling/mask_env.png",
+    "glow": "assets/scenes/darjeeling/mask_glow.png"
+  },
+  "anchors": {
+    "hangingLanternPivot": [
+      0.073,
+      0.067
+    ],
+    "hangingLanternCenter": [
+      0.073,
+      0.231
+    ],
+    "stoneLanternCenter": [
+      0.119,
+      0.878
+    ],
+    "teacupSteam": [
+      0.335,
+      0.876
+    ],
+    "teapotSpout": [
+      0.276,
+      0.824
+    ],
+    "pondCenter": [
+      0.7,
+      0.56
+    ],
+    "moonCenter": [
+      0.119,
+      0.402
+    ]
+  },
+  "regions": {
+    "water": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "skyMaxV": 0.38,
+    "lantern1": [
+      0.05,
+      0.095,
+      0.15,
+      0.275
+    ],
+    "lantern2": [
+      0.084,
+      0.155,
+      0.75,
+      0.95
+    ],
+    "mistBand": [
+      0.26,
+      1.0,
+      0.43,
+      0.8
+    ],
+    "cloudBanks": [
+      [
+        [
+          0.26,
+          0.459
+        ],
+        [
+          0.35,
+          0.456
+        ],
+        [
+          0.42,
+          0.452
+        ],
+        [
+          0.36,
+          0.487
+        ],
+        [
+          0.3,
+          0.485
+        ]
+      ],
+      [
+        [
+          0.4,
+          0.5
+        ],
+        [
+          0.5,
+          0.489
+        ],
+        [
+          0.58,
+          0.467
+        ],
+        [
+          0.69,
+          0.47
+        ],
+        [
+          0.77,
+          0.466
+        ],
+        [
+          0.9,
+          0.443
+        ],
+        [
+          1.0,
+          0.435
+        ],
+        [
+          1.0,
+          0.475
+        ],
+        [
+          0.89,
+          0.482
+        ],
+        [
+          0.8,
+          0.506
+        ],
+        [
+          0.72,
+          0.55
+        ],
+        [
+          0.62,
+          0.548
+        ],
+        [
+          0.49,
+          0.554
+        ],
+        [
+          0.42,
+          0.539
+        ]
+      ],
+      [
+        [
+          0.3,
+          0.547
+        ],
+        [
+          0.4,
+          0.554
+        ],
+        [
+          0.51,
+          0.551
+        ],
+        [
+          0.6,
+          0.535
+        ],
+        [
+          0.69,
+          0.554
+        ],
+        [
+          0.76,
+          0.582
+        ],
+        [
+          0.82,
+          0.583
+        ],
+        [
+          0.9,
+          0.547
+        ],
+        [
+          1.0,
+          0.559
+        ],
+        [
+          1.0,
+          0.731
+        ],
+        [
+          0.92,
+          0.743
+        ],
+        [
+          0.84,
+          0.785
+        ],
+        [
+          0.77,
+          0.771
+        ],
+        [
+          0.71,
+          0.738
+        ],
+        [
+          0.63,
+          0.721
+        ],
+        [
+          0.54,
+          0.693
+        ],
+        [
+          0.46,
+          0.665
+        ],
+        [
+          0.39,
+          0.635
+        ],
+        [
+          0.34,
+          0.596
+        ]
+      ]
+    ]
+  }
+}
