@@ -35,6 +35,8 @@ const titleNativeEl = document.getElementById('title-native');
 const titleEnEl = document.getElementById('title-en');
 const titleSubEl = document.getElementById('title-sub');
 const sceneSwitcherEl = document.getElementById('scene-switcher');
+const stage = document.getElementById('stage');
+const portraitLayout = window.matchMedia('(max-width: 820px) and (orientation: portrait)');
 
 const btnAmbience = document.getElementById('btn-ambience');
 const btnRadio = document.getElementById('btn-radio');
@@ -161,6 +163,14 @@ async function init() {
   const catalog = await catalogRes.json();
   const scenesList = catalog.scenes || [];
   const initialScene = scenesList.find((scene) => scene.id === 'summer-terrace') ?? scenesList[0];
+
+  function revealSelectedScene() {
+    if (portraitLayout.matches) {
+      sceneSwitcherEl.querySelector('[aria-pressed="true"]')
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+  portraitLayout.addEventListener('change', revealSelectedScene);
 
   // --- Renderer ---
   const renderer = new THREE.WebGLRenderer({
@@ -438,6 +448,7 @@ async function init() {
     currentManifest = manifest;
     sceneStartTime = simTime;
     imgAspect = manifest.aspect || 16 / 9;
+    stage.style.setProperty('--scene-backdrop', `url("${layerTextures[0].image.src}")`);
 
     manifest.layers.forEach((layerMeta, idx) => {
       const mat = createLayerMaterial({
@@ -491,6 +502,7 @@ async function init() {
     sceneSwitcherEl.querySelectorAll('button').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.sceneId === manifest.id));
     });
+    revealSelectedScene();
 
     // Switch regional spatial ambience profile
     sound.setProfile(manifest.soundProfile || 'japan');
