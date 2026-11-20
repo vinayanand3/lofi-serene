@@ -179,6 +179,9 @@ channel confines the breeze to the potted plants. Two feathered regions on
 the foreground card animate the sleeping cousins' clothing in separate
 breathing cycles. The awake cousins chuckle, point, and swing their feet.
 The pointing gesture cues the Big Dipper, Boötes, and Corona Borealis in turn.
+Turn on **Torch** to sweep light across the terrace with a pointer or tap.
+Tap the wall lamp to dim it or tap the sky to reveal the next constellation.
+**Controls** also provides buttons for both actions.
 The ambience uses crickets and a light breeze, with
 Starlight Drift on the radio.
 

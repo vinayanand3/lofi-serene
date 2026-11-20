@@ -259,6 +259,7 @@ SCENES = [
             "sourceColor": True,
             "stars": True,
             "moonGlow": 0.014,
+            "terraceInteractions": True,
             "starLuma": [0.08, 0.40],
             "mist": 0.0,
             "cupSteam": False,

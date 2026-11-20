@@ -54,6 +54,21 @@ body {
   cursor: grabbing;
 }
 
+#diorama-canvas.torch-on {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+#btn-torch[hidden],
+#terrace-controls[hidden] {
+  display: none;
+}
+
+#btn-torch[aria-pressed='true'] {
+  border-color: var(--border-active);
+  background: var(--glass-hover);
+}
+
 .title-card {
   position: fixed;
   top: 22px;

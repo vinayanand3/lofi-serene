@@ -4,7 +4,7 @@ import * as THREE from 'three';
 if (!Object.hasOwn(HTMLElement.prototype, 'popover')) {
   import('@oddbird/popover-polyfill');
 }
-import { createLayerMaterial } from './shaders/layerShaders.js';
+import { createLayerMaterial, TERRACE_BEAT_SECONDS } from './shaders/layerShaders.js';
 import {
   createSteamMaterial,
   createMistVeilMaterial,
@@ -52,6 +52,10 @@ const btnPause = document.getElementById('btn-pause');
 const btnQuickPause = document.getElementById('btn-quick-pause');
 const btnControlsTrigger = document.getElementById('btn-controls-trigger');
 const controlsPopover = document.getElementById('controls-popover');
+const btnTorch = document.getElementById('btn-torch');
+const terraceControls = document.getElementById('terrace-controls');
+const btnTerraceLamp = document.getElementById('btn-terrace-lamp');
+const btnNextStars = document.getElementById('btn-next-stars');
 
 let toastTimer = null;
 function showToast(msg) {
@@ -301,6 +305,40 @@ async function init() {
 
   const targetPointer = new THREE.Vector2(0, 0);
   const smoothPointer = new THREE.Vector2(0, 0);
+  const torchTarget = new THREE.Vector2(0.5, 0.38);
+  const torchCenter = torchTarget.clone();
+  const torchResolution = new THREE.Vector2(1, 1);
+  let torchOn = false;
+  let terraceLampOn = true;
+  let constellationOffset = 0;
+
+  function terraceTime() {
+    return reducedMotion ? 1.7 : simTime - sceneStartTime;
+  }
+
+  function setTorch(on) {
+    torchOn = on;
+    canvas.classList.toggle('torch-on', on);
+    btnTorch.setAttribute('aria-pressed', String(on));
+  }
+
+  function setTerraceLamp(on) {
+    terraceLampOn = on;
+    btnTerraceLamp.setAttribute('aria-pressed', String(on));
+  }
+
+  function toggleTerraceLamp() {
+    setTerraceLamp(!terraceLampOn);
+    showToast(terraceLampOn ? 'Wall lamp on' : 'Wall lamp dimmed');
+  }
+
+  function nextConstellation() {
+    const baseTime = terraceTime();
+    const nextBeat = Math.floor((baseTime + constellationOffset) / TERRACE_BEAT_SECONDS) + 1;
+    const visiblePhase = paused || reducedMotion ? TERRACE_BEAT_SECONDS * 0.33 : 0;
+    constellationOffset = nextBeat * TERRACE_BEAT_SECONDS + visiblePhase - baseTime;
+    showToast('Next constellation');
+  }
 
   let lanternAngle = 0;
   let lanternVel = 0;
@@ -338,6 +376,7 @@ async function init() {
 
   function updateLayout(width, height) {
     renderer.setSize(width, height, false);
+    renderer.getDrawingBufferSize(torchResolution);
     const vpAspect = width / Math.max(1, height);
     camera.aspect = vpAspect;
     camera.updateProjectionMatrix();
@@ -449,6 +488,14 @@ async function init() {
     sceneStartTime = simTime;
     imgAspect = manifest.aspect || 16 / 9;
     stage.style.setProperty('--scene-backdrop', `url("${layerTextures[0].image.src}")`);
+    const interactiveTerrace = Boolean(manifest.effects?.terraceInteractions);
+    btnTorch.hidden = !interactiveTerrace;
+    terraceControls.hidden = !interactiveTerrace;
+    setTorch(false);
+    torchTarget.set(0.5, 0.38);
+    torchCenter.copy(torchTarget);
+    setTerraceLamp(true);
+    constellationOffset = 0;
 
     manifest.layers.forEach((layerMeta, idx) => {
       const mat = createLayerMaterial({
@@ -462,6 +509,7 @@ async function init() {
       });
       mat.uniforms.uMood.value = moodIndex;
       mat.uniforms.uInspectMode.value = inspectIndex;
+      mat.uniforms.uTorchResolution.value = torchResolution;
 
       const mesh = new THREE.Mesh(planeGeo, mat);
       mesh.position.z = layerMeta.z;
@@ -559,6 +607,10 @@ async function init() {
 
     if (!currentManifest) return;
     const { u, v } = screenToImageUv(e.clientX, e.clientY);
+    if (torchOn) {
+      torchTarget.set(u, 1 - v);
+      return;
+    }
     const [cu, cv] = currentManifest.anchors.teacupSteam;
     if (currentManifest.effects?.cupSteam !== false && Math.hypot(u - cu, v - cv) < 0.09) {
       teaSwirl = Math.min(1.0, teaSwirl + 0.14);
@@ -578,6 +630,17 @@ async function init() {
 
     // 1. Primary lantern / banker's lamp
     const [lu, lv] = a.hangingLanternCenter;
+    if (fx.terraceInteractions) {
+      if (torchOn) {
+        torchTarget.set(u, 1 - v);
+      } else if (Math.hypot((u - lu) * imgAspect, v - lv) < 0.055) {
+        toggleTerraceLamp();
+      } else if (v < currentManifest.regions.skyMaxV) {
+        nextConstellation();
+      }
+      return;
+    }
+
     if (Math.hypot((u - lu) * 1.4, v - lv) < 0.14) {
       if (fx.pendulumLantern) {
         const dir = u >= lu ? -1 : 1;
@@ -621,6 +684,13 @@ async function init() {
   });
 
   // --- HUD Controls ---
+  btnTorch.addEventListener('click', () => {
+    setTorch(!torchOn);
+    showToast(torchOn ? 'Torch on. Move or tap the scene to aim.' : 'Torch off');
+  });
+  btnTerraceLamp.addEventListener('click', toggleTerraceLamp);
+  btnNextStars.addEventListener('click', nextConstellation);
+
   btnAmbience.addEventListener('click', () => {
     const on = sound.toggleAmbience();
     btnAmbience.setAttribute('aria-pressed', String(on));
@@ -773,10 +843,15 @@ async function init() {
     stonePulse = Math.max(0, stonePulse - dt * 0.75);
     teaSwirl = Math.max(0, teaSwirl - dt * 0.65);
 
+    torchCenter.lerp(torchTarget, reducedMotion ? 1 : 1 - Math.exp(-18 * dt));
+    const elapsed = terraceTime();
     for (let i = 0; i < layerMaterials.length; i++) {
       const u = layerMaterials[i].uniforms;
       u.uTime.value = t;
-      u.uTerraceTime.value = reducedMotion ? 1.7 : t - sceneStartTime;
+      u.uTerraceTime.value = elapsed;
+      u.uConstellationTime.value = elapsed + constellationOffset;
+      u.uTorch.value.set(torchCenter.x, torchCenter.y, torchOn ? 1 : 0);
+      u.uTerraceLampOn.value = terraceLampOn ? 1 : 0;
       u.uReducedMotion.value = paused ? 1.0 : reducedMotion;
       u.uLanternSwing.value = lanternAngle;
       u.uLanternPulse.value = lanternPulse;
@@ -793,7 +868,7 @@ async function init() {
     rainMat.uniforms.uTime.value = t * m;
 
     const lanternHalo = currentManifest?.effects?.lanternHalo ?? 1;
-    hangingHaloMat.uniforms.uOpacity.value = lanternHalo *
+    hangingHaloMat.uniforms.uOpacity.value = (terraceLampOn ? lanternHalo : 0) *
       (0.21 + 0.03 * Math.sin(t * 2.3) * m + lanternPulse * 0.14) *
       (moodIndex === 1 ? 1.25 : 1.0);
     stoneHaloMat.uniforms.uOpacity.value = lanternHalo *

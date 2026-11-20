@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+export const TERRACE_BEAT_SECONDS = 6;
+
 const LAYER_VERTEX_SHADER = /* glsl */ `
   uniform sampler2D uDepthMap;
   uniform float uDepthRelief;
@@ -57,11 +59,18 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
     uniform vec4 uSleeperBreath[2]; // xy: garment center, zw: feather radii
   #endif
   #if defined(AWAKE_GESTURES) || defined(CONSTELLATION_GUIDE)
-    uniform float uTerraceTime;
-    const float TERRACE_BEAT_SECONDS = 6.0;
+    uniform float uConstellationTime;
+    const float TERRACE_BEAT_SECONDS = ${TERRACE_BEAT_SECONDS.toFixed(1)};
   #endif
   #ifdef AWAKE_GESTURES
+    uniform float uTerraceTime;
     uniform vec4 uAwakeGestures[3]; // Chuckle, pointing hand, and feet
+  #endif
+  #ifdef TERRACE_INTERACTIONS
+    uniform vec2 uTorchResolution;
+    uniform vec3 uTorch; // xy: screen position, z: on/off
+    uniform vec2 uTerraceLampCenter;
+    uniform float uTerraceLampOn;
   #endif
 
   // Interactive pond ripples: xy = UV center, z = startTime, w = strength
@@ -214,7 +223,7 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
       float lowerLip = 1.0 - smoothstep(-0.002, 0.002, uv.y - mouth.y);
       sampleUv.y += 0.0025 * chuckle * lowerLip * gestureFeather(uv, mouth);
 
-      float beat = uTerraceTime / TERRACE_BEAT_SECONDS;
+      float beat = uConstellationTime / TERRACE_BEAT_SECONDS;
       float cue = mod(floor(beat), 3.0);
       float previous = mod(cue + 2.0, 3.0);
       float turn = mix(previous, cue, smoothstep(0.02, 0.21, fract(beat))) * 0.15 - 0.15;
@@ -343,7 +352,7 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
     // 5. Sky: twinkling stars + crescent moon halo OR drifting painterly clouds
     if (uLayerIndex == 0 && skyM > 0.04) {
       #ifdef CONSTELLATION_GUIDE
-        float beat = uTerraceTime / TERRACE_BEAT_SECONDS;
+        float beat = uConstellationTime / TERRACE_BEAT_SECONDS;
         float phase = fract(beat);
         float reveal = smoothstep(0.12, 0.29, phase) * (1.0 - smoothstep(0.78, 0.99, phase));
         vec2 guide = constellationShape(uv, int(mod(floor(beat), 3.0)));
@@ -389,6 +398,15 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
     }
 
     // 8. Primary lantern / banker's lamp warm breathing glow
+    #ifdef TERRACE_INTERACTIONS
+      hangingM *= uTerraceLampOn;
+      if (uTerraceLampOn < 0.5) {
+        vec2 lampDelta = uv - uTerraceLampCenter;
+        float wallGlow = 1.0 - smoothstep(0.18, 1.0, length(lampDelta / vec2(0.039, 0.072)));
+        float bulb = 1.0 - smoothstep(0.25, 1.0, length(lampDelta / vec2(0.010, 0.022)));
+        col *= mix(vec3(1.0), vec3(0.48, 0.60, 0.83), wallGlow) * (1.0 - 0.50 * bulb);
+      }
+    #endif
     if (hangingM > 0.02) {
       float flicker = 1.0
         + (0.045 * sin(uTime * 2.3) + 0.025 * sin(uTime * 5.7 + 1.4)) * motion
@@ -406,6 +424,15 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
       vec3 candleCol = vec3(1.0, 0.78, 0.38);
       col += candleCol * stoneM * 0.22 * max(0.0, candle - 0.82);
     }
+
+    #ifdef TERRACE_INTERACTIONS
+      if (uTorch.z > 0.5) {
+        vec2 delta = gl_FragCoord.xy / uTorchResolution - uTorch.xy;
+        delta.x *= uTorchResolution.x / uTorchResolution.y;
+        float beam = 1.0 - smoothstep(0.08, 0.24, length(delta));
+        col = col * (1.0 + 0.85 * beam) + vec3(0.017, 0.021, 0.025) * beam;
+      }
+    #endif
 
     // 10. Live inspection modes (AI Depth Map / Semantic Pixel Stencils)
     if (uInspectMode == 1) {
@@ -453,6 +480,7 @@ export function createLayerMaterial({
       ...(breathing ? { SLEEPER_BREATH: 1 } : {}),
       ...(awake ? { AWAKE_GESTURES: 1 } : {}),
       ...(layerIndex === 0 && fx.awakeGestures ? { CONSTELLATION_GUIDE: 1 } : {}),
+      ...(fx.terraceInteractions ? { TERRACE_INTERACTIONS: 1 } : {}),
     },
     uniforms: {
       uMap: { value: layerTexture },
@@ -461,6 +489,13 @@ export function createLayerMaterial({
       uMaskGlow: { value: maskGlowTexture },
       uTime: { value: 0 },
       uTerraceTime: { value: 0 },
+      uConstellationTime: { value: 0 },
+      uTorchResolution: { value: new THREE.Vector2(1, 1) },
+      uTorch: { value: new THREE.Vector3() },
+      uTerraceLampCenter: {
+        value: new THREE.Vector2(anchors.hangingLanternCenter[0], 1.0 - anchors.hangingLanternCenter[1]),
+      },
+      uTerraceLampOn: { value: 1 },
       uLayerIndex: { value: layerIndex },
       uDepthRelief: { value: depthRelief },
       uInspectMode: { value: 0 },

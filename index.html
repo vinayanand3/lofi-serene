@@ -29,6 +29,10 @@
 
       <!-- Minimal bottom-right corner launcher (keeps foreground scene 100% unobstructed) -->
       <div class="corner-launcher">
+        <button id="btn-torch" class="corner-btn" type="button" aria-pressed="false" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          Torch
+        </button>
         <button
           id="btn-quick-pause"
           class="corner-btn"
@@ -170,6 +174,14 @@
           >
             <span>Pause</span>
           </button>
+        </section>
+
+        <section id="terrace-controls" class="control-section" aria-label="Terrace interactions" hidden>
+          <h2 class="section-label">Terrace</h2>
+          <div class="control-row">
+            <button id="btn-terrace-lamp" class="hud-btn" type="button" aria-pressed="true">Wall lamp</button>
+            <button id="btn-next-stars" class="hud-btn" type="button">Next constellation</button>
+          </div>
         </section>
       </aside>
 
