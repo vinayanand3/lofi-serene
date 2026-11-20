@@ -41,6 +41,8 @@ const radioVolumeEl = document.getElementById('radio-volume');
 const ytSourceLinkEl = document.getElementById('yt-source-link');
 const ytUrlForm = document.getElementById('yt-url-form');
 const ytUrlInput = document.getElementById('yt-url-input');
+const btnYtMini = document.getElementById('btn-yt-mini');
+const ytRadioWrap = document.getElementById('yt-radio-wrap');
 const btnMood = document.getElementById('btn-mood');
 const btnDrift = document.getElementById('btn-drift');
 const btnPause = document.getElementById('btn-pause');
@@ -626,6 +628,12 @@ async function init() {
 
   radioVolumeEl?.addEventListener('input', (e) => {
     ytRadio.setVolume(e.target.value);
+  });
+
+  btnYtMini?.addEventListener('click', () => {
+    const shown = ytRadioWrap?.classList.toggle('visible');
+    btnYtMini.textContent = shown ? 'Hide Player' : 'Show Player';
+    ytRadioWrap?.setAttribute('aria-hidden', String(!shown));
   });
 
   ytUrlForm?.addEventListener('submit', (e) => {

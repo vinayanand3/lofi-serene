@@ -122,13 +122,12 @@ export class YouTubeRadio {
     wrap.appendChild(host);
 
     this.player = new YT.Player(host, {
-      height: '113',
-      width: '200',
+      height: '158',
+      width: '280',
       videoId,
       playerVars: {
         autoplay: 1,
-        controls: 0,
-        disablekb: 1,
+        controls: 1,
         enablejsapi: 1,
         fs: 0,
         loop: 1,
