@@ -163,7 +163,7 @@ function uvToWorld(u, v, z, baseW, baseH) {
 }
 
 async function init() {
-  const catalogRes = await fetch('./assets/scenes.json');
+  const catalogRes = await fetch('./assets/scenes.json', { cache: 'no-cache' });
   const catalog = await catalogRes.json();
   const scenesList = catalog.scenes || [];
   const initialScene = scenesList.find((scene) => scene.id === 'summer-terrace') ?? scenesList[0];
@@ -463,7 +463,7 @@ async function init() {
 
     let bundle = sceneCache.get(entry.id);
     if (!bundle) {
-      const res = await fetch(`./${entry.manifest}`);
+      const res = await fetch(`./${entry.manifest}`, { cache: 'no-cache' });
       const manifest = await res.json();
       const [depthTex, maskEnvTex, maskGlowTex, ...layerTextures] = await Promise.all([
         loadTex(`./${manifest.depthMap}`, false),
