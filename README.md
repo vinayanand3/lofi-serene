@@ -1,45 +1,108 @@
-# 山茶屋 · Mountain Teahouse at Dusk — 2.5D Lo-Fi Diorama
+# Lo-Fi Serene
 
-An original interactive 2.5D Three.js lo-fi diorama built from a single static illustration using a local AI depth-estimation, layer-slicing, inpainting, semantic pixel-stencil, custom GLSL shader, and procedural Web Audio API workflow.
+Six illustrated scenes with 2.5D camera motion, scene-specific shader animation, and a lo-fi radio. [Open the player on GitHub Pages](https://vinayanand3.github.io/lofi-serene/).
 
-## Architecture
+Each scene starts as one still image. A local Python pipeline estimates relative depth, separates the image into five transparent cards, fills the hidden areas behind them, and exports masks for individual effects. Three.js turns those files into a moving scene in the browser.
 
-1. **Single-Image AI Vision Pipeline (`pipeline/build_diorama.py`)**
-   - **Monocular Depth Estimation**: Runs `depth-anything/Depth-Anything-V2-Large-hf` locally on Apple Silicon MPS (`torch`), refined with an edge-preserving OpenCV guided filter so depth boundaries snap cleanly to ink outlines.
-   - **5-Plane Depth Slicing & Inpainting**: Segments the scene into 5 depth-ordered RGBA cards (`layer_0_sky_valley.png` through `layer_4_eaves_lantern.png`), applies **12px RGB edge-bleed dilation** to prevent bilinear WebGL fringes, and reconstructs occluded backgrounds with OpenCV Telea inpainting so camera parallax never exposes gaps.
-   - **Packed RGB Semantic Stencil Masks**:
-     - `mask_env.png`: `R` = mountain river & pond, `G` = twilight sky, `B` = bamboo, pine boughs, cliff ferns & right leaves.
-     - `mask_glow.png`: `R` = hanging washi paper lantern, `G` = mossy stone garden lantern (*tōrō*), `B` = mountain valley mist corridor.
+![Six stages of the Moonlit Mountain Cottage workflow, from the source image to the depth map, inpainted background, foreground cutout, and shader masks](docs/workflow-moonlit-cottage.jpg)
 
-2. **Three.js + Custom GLSL Shaders (`src/shaders/`)**
-   - Frustum-matched 5-layer 2.5D perspective scene with subtle per-vertex depth relief and responsive cover-fit layout.
-   - Real-time GPU effects isolated by the semantic masks: hanging lantern harmonic pendulum sway, warm candle flicker, foliage breeze sway, twinkling twilight stars, moon halo, drifting valley mist, volumetric FBM matcha steam, 3D bioluminescent fireflies, and interactive pond water ripples.
-   - Built-in **View: Scene / AI Depth / Masks** toggle to inspect the live Depth-Anything-V2 map and RGB stencil masks directly in 3D.
+## Run the player
 
-3. **100% Procedural Spatial Web Audio (`src/audio/`)**
-   - Zero external audio files, samples or third-party recordings, so all music is original and free to use.
-   - `soundscape.js`: spatial breeze, valley stream, rain, crickets, regional accents (bamboo knock, temple bell, wind chime) and click foley.
-   - `instruments.js`: synthesized voices (FM electric piano, felt piano, Karplus-Strong nylon guitar, koto, harp, sitar, tanpura and upright bass, bansuri-style flute, vibraphone, kalimba, music box, singing bowl, pads, synth pluck, soft drum kits and tabla).
-   - `stations.js`: twelve station recipes, each with its own tempo, key or raga, instruments, groove, arrangement and room. Study stations keep a soft groove; sleep stations are beatless and dark.
-   - `musicEngine.js`: schedules bars ahead on the audio clock, builds phrase-based melodies, brings parts in and out, and crossfades between stations. Everything passes through a gentle "smooth" stage (rounded tone, quiet drums, light tape and vinyl) and a glue compressor so all stations sit at a similar level.
-   - Every scene has its own station (Teahouse: Kyoto Dusk, Kerala: Malabar Monsoon, PNW: Cedar Fog Trio, Darjeeling: Himalayan Cloud Harp, Moonlit Cottage: Rainy Day Rhodes, Summer Terrace: Starlight Drift). Picking a station in Controls changes it for the current scene only, and the choice is remembered in the browser.
-
-## Quick Start
+Use Node.js 22 and npm. From the repository root:
 
 ```bash
-# 1. Start the Three.js diorama
-npm install
+npm ci
 npm run dev
 ```
 
-To re-run the local Python Depth-Anything-V2 pipeline (e.g., if you swap `assets/source/teahouse_dusk.jpg`):
+Open the address printed by Vite and choose a scene. The exported textures are checked in, so this step needs only the JavaScript dependencies and a WebGL 2 browser. Use **Ambience** for the locally synthesized environmental audio. YouTube playback depends on the selected video's embedding settings and the browser's autoplay policy.
+
+```bash
+npm run build
+npm run preview
+```
+
+## Recreate a scene
+
+### 1. Generate and refine one source image
+
+We used the built-in image generator to make the source illustrations, then revised composition, lighting, and style with the previous image as the reference. The scene notes below retain the prompts for the cottage, Himalayan dawn, Kerala monsoon, and rooftop sleepover. Reuse the included PNG or JPEG for the same starting plate. Re-entering the prompt can produce a different composition.
+
+- Start with a wide RGB image. The newer scenes use 1672 × 941. Keep that canvas and framing fixed after measuring anchors.
+- Ask for clearly separated near objects, architecture, landscape, and sky. Leave some room at the borders for the camera to move.
+- Leave rain streaks, coffee steam, and any other shader-driven motion out of the still image. Wet surfaces, reflected light, and painted clouds can stay in the source.
+- Check that anchor objects have readable silhouettes. For Kerala, we simplified the mug, kettle, and porch to match the character art. For the terrace, we relit the scene in indigo and pulled the camera back before measuring positions.
+
+Save the final image to [`assets/source/`](assets/source/). Keep earlier drafts outside the active scene configuration.
+
+### 2. Run Depth Anything V2 Large on Apple Silicon
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/). On an Apple Silicon Mac, use an arm64 terminal and let uv select Python 3.12. The committed lockfile pins the Python packages. [PyTorch MPS documentation](https://docs.pytorch.org/docs/stable/notes/mps.html).
 
 ```bash
 cd pipeline
-uv run --python 3.12 python build_diorama.py
+uv sync --locked --python 3.12
+uv run --locked --python 3.12 python -c 'import platform, torch; print(platform.machine(), torch.__version__); print("MPS available:", torch.backends.mps.is_available())'
+uv run --locked --python 3.12 python build_diorama.py moonlit-cottage
 ```
 
-## Moonlit Mountain Cottage
+Expect `arm64` and `MPS available: True` on a supported Mac. The pipeline logs `device=mps` when it uses Metal. If a sandbox or remote session cannot see the GPU, rerun the check in a local Terminal. The pipeline selects MPS first, then CUDA, then CPU.
+
+On the first run, Transformers fetches the processor and checkpoint from Hugging Face. Inference runs on your machine. The model is loaded once per invocation, even when you pass multiple scene IDs. Omit the IDs to rebuild all configured scenes. The Large checkpoint is licensed CC BY-NC 4.0. [Model card and license](https://huggingface.co/depth-anything/Depth-Anything-V2-Large-hf) · [Depth Anything V2 project](https://github.com/DepthAnything/Depth-Anything-V2).
+
+Inside [`pipeline/build_diorama.py`](pipeline/build_diorama.py), `estimate_depth` moves the input tensors and model onto the selected device, runs inference without gradients, and resizes the prediction to the source dimensions. It normalizes using the 1st and 99.5th percentiles, then uses an OpenCV guided filter with the source luminance to refine depth boundaries. White represents nearer pixels and black represents farther pixels in the exported 8-bit map. These are relative values within each image.
+
+### 3. Build five aligned parallax cards
+
+The pipeline uses the refined floating-point depth for slicing and saves the grayscale map separately for the shader.
+
+1. `slice_layers` starts with four depth cutoffs at the 28th, 54th, 74th, and 88th percentiles. Set `customThresholds` to four ascending values between 0 and 1 when those percentiles split objects poorly.
+2. Treat important objects as one silhouette. The Darjeeling and Kerala masks group their tea sets and furniture. The rooftop helper includes the cousins, bedding, and pointing arm on the foreground card. These are scene-specific masks built from depth thresholds, drawing coordinates, or both.
+3. Fill the areas behind any closer card with OpenCV Telea inpainting. The pipeline downsamples the image for the fill, upsamples the result, and feathers it at the boundary. This gives small camera shifts some background to reveal.
+4. Extend the middle cards slightly underneath closer ones, feather alpha edges, and bleed neighboring RGB colors up to 12 pixels past the alpha boundary to reduce sampling fringes.
+5. Export five full-canvas RGBA PNGs in far-to-near order. The far card is opaque. Each other card has a transparent cutout. All five PNGs, the depth map, and both shader masks share the source dimensions and origin.
+
+Inspect the stack at rest and at the extremes of the intended camera movement. Halos, doubled outlines, or seams usually mean the same object needs to be on one plane, the cutout needs more overlap, or the per-scene camera movement should be reduced. Single-image inpainting only reconstructs small hidden patches plausibly, so the camera motion stays shallow.
+
+### 4. Mark the parts that should move or glow
+
+The Python pipeline combines depth, color, and per-scene regions to produce two packed RGB textures. Each channel stores one grayscale effect weight.
+
+| Export | Red | Green | Blue |
+| --- | --- | --- | --- |
+| `mask_env.png` | Water and reflections | Sky, stars, and moon | Foliage |
+| `mask_glow.png` | Main lamp | Secondary lamp or diya | Valley mist or the painted cloud banks in Darjeeling |
+
+Coordinates in the scene configuration are normalized from the top-left of the still image. For a pixel at `(x, y)` in a source of size `W × H`, use `[x / W, y / H]`. Regions such as `water`, `lantern1`, and `mistBand` use `[left, right, top, bottom]`. A water rectangle of four zeros disables the default water mask. The renderer flips the vertical coordinate for shader UVs where needed.
+
+Use small regions for specific motion. Place the steam anchor at the liquid surface or spout. Trace the cloud banks away from prominent ridgelines. Keep the terrace chuckle around the lower lip and feather it to zero before the face outline. The terrace uses the blue environment mask to confine the breeze to the original potted plants.
+
+### 5. Add a scene and tune it in the player
+
+1. In [`SCENES`](pipeline/build_diorama.py), copy the closest scene entry. Change `id` to a unique slug, `source` to your file name, and the display fields to your scene labels. Start from `moonlit-cottage` for a wet scene with steam or `summer-terrace` for a dry night. Pick an existing `soundProfile` from [`src/audio/soundscape.js`](src/audio/soundscape.js). Clear effects and regions that do not apply to the new image, and remeasure the anchors and masks.
+2. For example, with a source named `evening-veranda.png` and the ID `evening-veranda`, put the file under `assets/source/` and run the following from the repository root.
+
+   ```bash
+   cd pipeline
+   uv run --locked --python 3.12 python build_diorama.py evening-veranda
+   cd ..
+   npm run dev
+   ```
+
+3. The exporter writes `public/assets/scenes/evening-veranda/manifest.json`, the five layer PNGs, `depth_map.png`, `mask_env.png`, and `mask_glow.png`. It also refreshes `public/assets/scenes.json`. Reload the browser and select the new badge. Commit the source image, scene configuration, catalog, and generated scene folder together.
+4. In [`src/main.js`](src/main.js), the manifest drives card loading and layout. The camera sees the same image framing on all five planes at rest because each plane is scaled for its distance. Moving the camera then gives near and far planes different apparent motion. The layer vertex shader adds a small depth-based displacement within each card. Tune `parallaxStrength` and `depthRelief` in the scene effects when architecture or people appear to separate. For plane spacing, use the layer `z` values emitted by `slice_layers`.
+5. In [`src/shaders/layerShaders.js`](src/shaders/layerShaders.js), the shader samples the masks to limit water distortion, cloud drift, foliage, and light to the intended pixels. [`src/shaders/fxShaders.js`](src/shaders/fxShaders.js) provides the rain, fog, and steam effects. Color textures are loaded as sRGB. The depth and mask PNGs are loaded as data textures.
+6. Compare a centered frame and an offset frame, toggle Auto Drift, and check the scene at wide and narrow viewport sizes. Watch the animation with reduced motion enabled as well. For more precise edits, open the exported layer PNGs over a checkerboard and stack them from 0 to 4 to compare against the source.
+
+## Publish the player
+
+The [GitHub Actions workflow](.github/workflows/pages.yml) installs the locked npm dependencies, runs Vite, and uploads `dist/`. Vite uses relative asset paths so the scene catalog and images also work under a repository subpath. GitHub Actions uses the committed scene exports and does not run Python, download model weights, or need an Apple GPU. [Vite relative base paths](https://vite.dev/guide/build.html#relative-base).
+
+For a fork, open **Settings → Pages**, select **GitHub Actions** as the source, then run **Deploy GitHub Pages** from the Actions tab. Pushes to `main` run it again. GitHub Pages can publish the built site publicly even when its source repository is private, depending on the account plan. [GitHub Pages publishing sources](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+
+## Scene notes and image prompts
+
+### Moonlit Mountain Cottage
 
 Choose **Mountain Cottage · Drizzle** in the scene switcher. The original
 1672 × 941 RGB plate is in `assets/source/moonlit_cottage.png`. The five aligned
@@ -70,7 +133,7 @@ The source art was created with the built-in image generator using this prompt.
 
 > Use case: illustration-story. Create one wide landscape 16:9 hero background for a serene nighttime lo-fi radio, softly painterly, beautifully detailed original hand-painted cinematic environment art. View from within a sheltered rustic cottage balcony high on a lush emerald-green mountain, looking out over a sea of silver-blue clouds and layered mountain tops at night. Soft warm amber cottage lamplight from the upper left on wet dark timber and warmly inviting upholstered wicker lounge chairs, with a ceramic cup of hot coffee on a small table in the near foreground. A few lush plants along the balcony. Leave a large uninterrupted opening in the upper center and right for the beautiful cloud vista. Quiet indigo sky. Cozy refuge during gentle drizzle, with damp reflective timber and rain-softened atmosphere. Create the clean RGB plate for compositing: omit airborne rain streaks and visible coffee steam so they can be animated separately. Strong depth separation between near furniture, wood balcony edge, forested slopes, cloud sea, and dark sky, with clearly legible silhouettes and ample tonal detail even in the shadows. Keep the coffee cup clear and away from the image border. No people, lettering, logos, borders, panels, or watermarks. One cohesive scene.
 
-## Himalayas · Dawn Clouds
+### Himalayas · Dawn Clouds
 
 The cel-shaded source is in `assets/source/darjeeling_dawn_cel.png`. The
 aligned Depth Anything V2 map, five PNG layers, and shader masks are in
@@ -87,7 +150,7 @@ The cel-shaded source was created with the built-in image generator using this p
 
 > Use case: illustration-story. Draw an original wide 16:9 hand-drawn 2D cel-shaded background for a serene lo-fi radio scene, Himalayan dawn from a Darjeeling hill bungalow. The valley and the magnificent snow-covered Himalayan peaks are the stars of the composition, with distinct bands of dawn sky, distant small warm peach snow peaks, dark lavender blue foothills, broad billowing layers of pearl and lavender cloud in the valley, and lush emerald curved Darjeeling tea terraces with just a few pink flower bushes in the middle ground. Soft apricot sunrise at the left horizon and pale blue upper sky. View from a sheltered timber bungalow veranda, eye-level and wide cinematic framing. Keep the architectural framing sparse: a narrow timber wall/post only at the extreme left edge, a simple short eave entering from the upper-left less than halfway across the frame, a low railing primarily along the bottom, open unobstructed right and center with no central post and no right-side post. A single small amber brass lantern hangs beneath the far-left eave, clearly silhouetted. Near foreground in the bottom left and center: a small simple oval wood tea table entering from the bottom edge, with a clearly visible ceramic cup of tea (dark freshly poured tea visibly inside, no steam in this clean plate), a small teapot, and one small glowing table lantern. Give the tea set room to breathe, keep the cup fully in frame. A short string of colorful prayer flags across one nearby hillside well behind the railing, keep the valley largely clear. Art direction: sophisticated anime-inspired background art with crisp restrained ink outlines, decisively cel-shaded blocks of color and 2 to 3 clean color values per surface, softly luminous painted sky and clouds, subtle paper texture, clean leaf and cloud silhouettes. Colorful and elegant, warm dawn shadows retain detail, soft peach glint on snow, no crushed blacks, no photorealism, no 3D look, no heavy bloom. Strong silhouette separation between covered veranda, tea table, tea hills, cloud sea, ridgelines, and sky for independent parallax layers. Aim for a tranquil sense of altitude and generous negative space. No lettering, logo, watermarks, people, borders, rain, or baked-in steam.
 
-## India · Rainy Night
+### India · Rainy Night
 
 The new cel-shaded veranda is in `assets/source/kerala_monsoon_cel.png`.
 The five aligned PNGs, Depth Anything V2 Large map, and shader masks are in
@@ -106,7 +169,7 @@ The artwork was created and refined with the built-in image generator.
 
 > Edit the provided 16:9 Kerala monsoon scene. Preserve composition absolutely, same camera, exact layout and sizes, the mother and child unchanged, the houseboat unchanged, the same dark blue lagoon and warm wall lamp. Make the WHOLE scene look drawn in the same 2D cel-shaded animation style as the mother and boy. Prioritize the foreground objects: redraw the stainless steel kettle and cream coffee mug in place as clearly hand-drawn 2D animation props, with fine dark ink outlines that match the figures, simple flat fills, two or three sharply defined tone bands, and clean simple silhouettes. Kettle should read as muted slate bronze metal with a small pale graphic highlight band and no realistic metallic gradients or sharp reflected environment. Keep the curved upward-facing spout on the left. Keep the cream mug's dark coffee surface and round handle clearly visible, no steam. Simplify the tabletop, wet deck, beams and masonry to understated hand-drawn tonal shapes with the same line weight, remove photo-real texture and reflections, and keep the lagoon's reflections soft, irregular and mostly horizontal. Preserve the navy/slate exterior and restrained amber/cream accents and existing light and shadow directions. Keep the human poses, identities, anatomy, clothes, heads, proportions and expressions exactly the same. No folk ornamentation, no realism, no 3D sheen, no drawn rain lines, no circular water rings, no visible vapor, no text. One clean plate for later shader animation.
 
-## India · Summer Terrace
+### India · Summer Terrace
 
 The wide moonlit artwork is in `assets/source/indian_summer_terrace.png`.
 Its five aligned depth layers, Depth Anything V2 Large map, and shader
