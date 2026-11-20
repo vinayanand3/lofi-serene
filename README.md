@@ -2,7 +2,7 @@
 
 Six illustrated scenes with 2.5D camera motion, scene-specific shader animation, and a lo-fi radio. [Open the player on GitHub Pages](https://vinayanand3.github.io/lofi-serene/).
 
-Each scene starts as one still image. A local Python pipeline estimates relative depth, separates the image into five transparent cards, fills the hidden areas behind them, and exports masks for individual effects. Three.js turns those files into a moving scene in the browser.
+Each scene starts as one still image. A local Python pipeline estimates relative depth, separates the image into five aligned cards, fills the hidden areas behind them, and exports masks for individual effects. Three.js turns those files into a moving scene in the browser.
 
 ![Six stages of the Moonlit Mountain Cottage workflow, from the source image to the depth map, inpainted background, foreground cutout, and shader masks](docs/workflow-moonlit-cottage.jpg)
 
