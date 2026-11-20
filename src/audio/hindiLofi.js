@@ -102,7 +102,8 @@ const SECTIONS = [
 ];
 
 export class HindiLofiPlayer {
-  constructor() {
+  constructor({ onStateChange } = {}) {
+    this.onStateChange = onStateChange;
     this.ctx = null;
     this.masterGain = null;
     this.dryBus = null;
@@ -116,11 +117,12 @@ export class HindiLofiPlayer {
     this.timer = null;
   }
 
+  get playing() {
+    return this.enabled && this.ctx?.state === 'running';
+  }
+
   _ensureContext() {
-    if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-      return;
-    }
+    if (this.ctx) return;
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AudioCtx();
@@ -182,6 +184,10 @@ export class HindiLofiPlayer {
 
     this.noiseBuf = this._createNoiseBuffer(0.4);
     this._startVinylLayer(comp);
+    this.ctx.addEventListener('statechange', () => {
+      if (this.playing && this.timer === null) this._scheduleBar();
+      this.onStateChange?.();
+    });
   }
 
   _createReverbIR(duration, decay) {
@@ -501,7 +507,8 @@ export class HindiLofiPlayer {
   }
 
   _scheduleBar() {
-    if (!this.enabled || !this.ctx) return;
+    this.timer = null;
+    if (!this.playing) return;
 
     const beat = 60 / BPM;
     const barDur = beat * 4;
@@ -561,6 +568,7 @@ export class HindiLofiPlayer {
   }
 
   start() {
+    if (this.enabled) return this.unlockIfPending();
     this._ensureContext();
     this.enabled = true;
     const now = this.ctx.currentTime;
@@ -569,11 +577,8 @@ export class HindiLofiPlayer {
     clearTimeout(this.timer);
     this.timer = null;
 
-    if (this.ctx.state === 'running') {
-      this._scheduleBar();
-      return true;
-    }
-    return false;
+    this.onStateChange?.();
+    return this.unlockIfPending();
   }
 
   stop() {
@@ -585,29 +590,21 @@ export class HindiLofiPlayer {
       this.masterGain.gain.cancelScheduledValues(now);
       this.masterGain.gain.setTargetAtTime(0.0001, now, 0.35);
     }
+    this.onStateChange?.();
   }
 
-  toggle() {
-    if (this.enabled) {
-      this.stop();
-      return false;
+  async unlockIfPending() {
+    if (!this.enabled) return false;
+    if (this.ctx.state !== 'running') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        return false;
+      }
     }
-    this.start();
-    return true;
-  }
-
-  unlockIfPending() {
-    if (!this.enabled) return;
-    this._ensureContext();
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().then(() => {
-        if (this.enabled && !this.timer) {
-          this._scheduleBar();
-        }
-      });
-    } else if (!this.timer) {
-      this._scheduleBar();
-    }
+    if (this.playing && this.timer === null) this._scheduleBar();
+    this.onStateChange?.();
+    return this.playing;
   }
 
   setVolume(val) {

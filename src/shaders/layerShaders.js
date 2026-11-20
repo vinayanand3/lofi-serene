@@ -67,10 +67,15 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
     uniform vec4 uAwakeGestures[3]; // Chuckle, pointing hand, and feet
   #endif
   #ifdef TERRACE_INTERACTIONS
-    uniform vec2 uTorchResolution;
-    uniform vec3 uTorch; // xy: screen position, z: on/off
     uniform vec2 uTerraceLampCenter;
     uniform float uTerraceLampOn;
+  #endif
+  #ifdef TORCH_LIGHT
+    uniform vec4 uTorchPlacement; // xy: center, zw: sprite size
+    uniform float uTorchOn;
+  #endif
+  #ifdef TORCH_PROP
+    uniform sampler2D uTorchProp;
   #endif
 
   // Interactive pond ripples: xy = UV center, z = startTime, w = strength
@@ -324,6 +329,18 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
     }
 
     vec4 tex = texture2D(uMap, clamp(sampleUv, 0.001, 0.999));
+    #ifdef TORCH_PROP
+      vec2 propUv = (uv - uTorchPlacement.xy) / uTorchPlacement.zw + 0.5;
+      if (all(greaterThanEqual(propUv, vec2(0.0))) && all(lessThanEqual(propUv, vec2(1.0)))) {
+        vec4 prop = texture2D(uTorchProp, propUv);
+        vec2 lensDelta = (propUv - vec2(0.858, 0.49)) / vec2(0.095, 0.27);
+        float glass = 1.0 - smoothstep(0.22, 0.94, length(lensDelta));
+        prop.rgb = mix(prop.rgb, vec3(1.0, 0.77, 0.39), glass * uTorchOn * 0.88);
+        float backgroundAlpha = tex.a * (1.0 - prop.a);
+        tex = vec4((prop.rgb * prop.a + tex.rgb * backgroundAlpha) / max(prop.a + backgroundAlpha, 0.001),
+                   prop.a + backgroundAlpha);
+      }
+    #endif
     if (tex.a < 0.015) discard;
 
     vec3 col = tex.rgb;
@@ -425,12 +442,15 @@ const LAYER_FRAGMENT_SHADER = /* glsl */ `
       col += candleCol * stoneM * 0.22 * max(0.0, candle - 0.82);
     }
 
-    #ifdef TERRACE_INTERACTIONS
-      if (uTorch.z > 0.5) {
-        vec2 delta = gl_FragCoord.xy / uTorchResolution - uTorch.xy;
-        delta.x *= uTorchResolution.x / uTorchResolution.y;
-        float beam = 1.0 - smoothstep(0.08, 0.24, length(delta));
-        col = col * (1.0 + 0.85 * beam) + vec3(0.017, 0.021, 0.025) * beam;
+    #ifdef TORCH_LIGHT
+      if (uTorchOn > 0.5) {
+        vec2 lens = uTorchPlacement.xy + vec2(0.358, -0.01) * uTorchPlacement.zw;
+        vec2 delta = uv - lens;
+        float spread = 0.006 + max(delta.x, 0.0) * 0.45;
+        float edge = 1.0 - smoothstep(0.27, 1.0, abs(delta.y - delta.x * 0.27) / spread);
+        float lengthFade = smoothstep(-0.002, 0.012, delta.x) * (1.0 - smoothstep(0.038, 0.102, delta.x));
+        float beam = edge * lengthFade;
+        col = mix(col, col * 1.90 + vec3(0.073, 0.053, 0.027), beam);
       }
     #endif
 
@@ -461,6 +481,7 @@ export function createLayerMaterial({
   depthTexture,
   maskEnvTexture,
   maskGlowTexture,
+  torchPropTexture,
   layerIndex,
   depthRelief,
   manifest,
@@ -469,6 +490,7 @@ export function createLayerMaterial({
   const anchors = manifest.anchors;
   const breathing = layerIndex === 4 && fx.sleeperBreath;
   const awake = layerIndex === 4 && fx.awakeGestures;
+  const torchPlacement = fx.torchProp;
   return new THREE.ShaderMaterial({
     vertexShader: LAYER_VERTEX_SHADER,
     fragmentShader: LAYER_FRAGMENT_SHADER,
@@ -481,6 +503,8 @@ export function createLayerMaterial({
       ...(awake ? { AWAKE_GESTURES: 1 } : {}),
       ...(layerIndex === 0 && fx.awakeGestures ? { CONSTELLATION_GUIDE: 1 } : {}),
       ...(fx.terraceInteractions ? { TERRACE_INTERACTIONS: 1 } : {}),
+      ...(torchPropTexture ? { TORCH_LIGHT: 1 } : {}),
+      ...(torchPropTexture && layerIndex === 4 ? { TORCH_PROP: 1 } : {}),
     },
     uniforms: {
       uMap: { value: layerTexture },
@@ -490,8 +514,13 @@ export function createLayerMaterial({
       uTime: { value: 0 },
       uTerraceTime: { value: 0 },
       uConstellationTime: { value: 0 },
-      uTorchResolution: { value: new THREE.Vector2(1, 1) },
-      uTorch: { value: new THREE.Vector3() },
+      uTorchProp: { value: torchPropTexture },
+      uTorchOn: { value: 0 },
+      uTorchPlacement: {
+        value: torchPlacement
+          ? new THREE.Vector4(torchPlacement.center[0], 1 - torchPlacement.center[1], ...torchPlacement.size)
+          : new THREE.Vector4(),
+      },
       uTerraceLampCenter: {
         value: new THREE.Vector2(anchors.hangingLanternCenter[0], 1.0 - anchors.hangingLanternCenter[1]),
       },

@@ -54,19 +54,29 @@ body {
   cursor: grabbing;
 }
 
-#diorama-canvas.torch-on {
-  cursor: crosshair;
-  touch-action: none;
-}
-
-#btn-torch[hidden],
+.scene-hotspot[hidden],
+#btn-enable-sound[hidden],
 #terrace-controls[hidden] {
   display: none;
 }
 
-#btn-torch[aria-pressed='true'] {
-  border-color: var(--border-active);
-  background: var(--glass-hover);
+.scene-hotspot {
+  position: absolute;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scene-hotspot:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 
 .title-card {

@@ -40,6 +40,7 @@ const portraitLayout = window.matchMedia('(max-width: 820px) and (orientation: p
 
 const btnAmbience = document.getElementById('btn-ambience');
 const btnRadio = document.getElementById('btn-radio');
+const btnEnableSound = document.getElementById('btn-enable-sound');
 const radioVolumeEl = document.getElementById('radio-volume');
 const ytSourceLinkEl = document.getElementById('yt-source-link');
 const ytUrlForm = document.getElementById('yt-url-form');
@@ -305,9 +306,9 @@ async function init() {
 
   const targetPointer = new THREE.Vector2(0, 0);
   const smoothPointer = new THREE.Vector2(0, 0);
-  const torchTarget = new THREE.Vector2(0.5, 0.38);
-  const torchCenter = torchTarget.clone();
-  const torchResolution = new THREE.Vector2(1, 1);
+  const torchWorld = new THREE.Vector3();
+  const torchScreen = new THREE.Vector3();
+  const torchCanvas = { left: 0, top: 0, width: 0, height: 0 };
   let torchOn = false;
   let terraceLampOn = true;
   let constellationOffset = 0;
@@ -318,7 +319,6 @@ async function init() {
 
   function setTorch(on) {
     torchOn = on;
-    canvas.classList.toggle('torch-on', on);
     btnTorch.setAttribute('aria-pressed', String(on));
   }
 
@@ -376,7 +376,6 @@ async function init() {
 
   function updateLayout(width, height) {
     renderer.setSize(width, height, false);
-    renderer.getDrawingBufferSize(torchResolution);
     const vpAspect = width / Math.max(1, height);
     camera.aspect = vpAspect;
     camera.updateProjectionMatrix();
@@ -404,6 +403,14 @@ async function init() {
     if (!currentManifest) return;
     const a = currentManifest.anchors;
     const reg = currentManifest.regions;
+    const torchProp = currentManifest.effects?.torchProp;
+    if (torchProp) {
+      torchWorld.copy(uvToWorld(...torchProp.center, currentManifest.layers[4].z, baseW, baseH));
+      torchCanvas.left = canvas.offsetLeft;
+      torchCanvas.top = canvas.offsetTop;
+      torchCanvas.width = width;
+      torchCanvas.height = height;
+    }
 
     // Valley mist veil
     const [mx0, mx1, my0, my1] = reg.mistBand;
@@ -465,13 +472,15 @@ async function init() {
     if (!bundle) {
       const res = await fetch(`./${entry.manifest}`, { cache: 'no-cache' });
       const manifest = await res.json();
-      const [depthTex, maskEnvTex, maskGlowTex, ...layerTextures] = await Promise.all([
+      const torchFile = manifest.effects?.torchProp?.file;
+      const [depthTex, maskEnvTex, maskGlowTex, torchPropTex, ...layerTextures] = await Promise.all([
         loadTex(`./${manifest.depthMap}`, false),
         loadTex(`./${manifest.masks.env}`, false),
         loadTex(`./${manifest.masks.glow}`, false),
+        torchFile ? loadTex(`./${torchFile}`) : null,
         ...manifest.layers.map((l) => loadTex(`./${l.file}`, true)),
       ]);
-      bundle = { manifest, depthTex, maskEnvTex, maskGlowTex, layerTextures };
+      bundle = { manifest, depthTex, maskEnvTex, maskGlowTex, torchPropTex, layerTextures };
       sceneCache.set(entry.id, bundle);
     }
 
@@ -483,17 +492,15 @@ async function init() {
     layerMaterials = [];
     layerMeshes = [];
 
-    const { manifest, depthTex, maskEnvTex, maskGlowTex, layerTextures } = bundle;
+    const { manifest, depthTex, maskEnvTex, maskGlowTex, torchPropTex, layerTextures } = bundle;
     currentManifest = manifest;
     sceneStartTime = simTime;
     imgAspect = manifest.aspect || 16 / 9;
     stage.style.setProperty('--scene-backdrop', `url("${layerTextures[0].image.src}")`);
     const interactiveTerrace = Boolean(manifest.effects?.terraceInteractions);
-    btnTorch.hidden = !interactiveTerrace;
+    btnTorch.hidden = !torchPropTex;
     terraceControls.hidden = !interactiveTerrace;
     setTorch(false);
-    torchTarget.set(0.5, 0.38);
-    torchCenter.copy(torchTarget);
     setTerraceLamp(true);
     constellationOffset = 0;
 
@@ -503,13 +510,13 @@ async function init() {
         depthTexture: depthTex,
         maskEnvTexture: maskEnvTex,
         maskGlowTexture: maskGlowTex,
+        torchPropTexture: torchPropTex,
         layerIndex: idx,
         depthRelief: manifest.effects?.depthRelief ?? (idx === 0 ? 0.10 : 0.06),
         manifest,
       });
       mat.uniforms.uMood.value = moodIndex;
       mat.uniforms.uInspectMode.value = inspectIndex;
-      mat.uniforms.uTorchResolution.value = torchResolution;
 
       const mesh = new THREE.Mesh(planeGeo, mat);
       mesh.position.z = layerMeta.z;
@@ -607,10 +614,6 @@ async function init() {
 
     if (!currentManifest) return;
     const { u, v } = screenToImageUv(e.clientX, e.clientY);
-    if (torchOn) {
-      torchTarget.set(u, 1 - v);
-      return;
-    }
     const [cu, cv] = currentManifest.anchors.teacupSteam;
     if (currentManifest.effects?.cupSteam !== false && Math.hypot(u - cu, v - cv) < 0.09) {
       teaSwirl = Math.min(1.0, teaSwirl + 0.14);
@@ -631,9 +634,7 @@ async function init() {
     // 1. Primary lantern / banker's lamp
     const [lu, lv] = a.hangingLanternCenter;
     if (fx.terraceInteractions) {
-      if (torchOn) {
-        torchTarget.set(u, 1 - v);
-      } else if (Math.hypot((u - lu) * imgAspect, v - lv) < 0.055) {
+      if (Math.hypot((u - lu) * imgAspect, v - lv) < 0.055) {
         toggleTerraceLamp();
       } else if (v < currentManifest.regions.skyMaxV) {
         nextConstellation();
@@ -686,7 +687,7 @@ async function init() {
   // --- HUD Controls ---
   btnTorch.addEventListener('click', () => {
     setTorch(!torchOn);
-    showToast(torchOn ? 'Torch on. Move or tap the scene to aim.' : 'Torch off');
+    showToast(torchOn ? 'Flashlight on' : 'Flashlight off');
   });
   btnTerraceLamp.addEventListener('click', toggleTerraceLamp);
   btnNextStars.addEventListener('click', nextConstellation);
@@ -697,7 +698,7 @@ async function init() {
     showToast(on ? 'Spatial ambience enabled' : 'Ambience muted');
   });
 
-  const hindiLofi = new HindiLofiPlayer();
+  const hindiLofi = new HindiLofiPlayer({ onStateChange: syncBuiltinAudioControls });
   const ytRadio = new YouTubeRadio('yt-radio-host', {
     onError: (msg) => {
       showToast(msg);
@@ -706,15 +707,27 @@ async function init() {
   let musicMode = 'builtin'; // 'builtin' (Night Hindi Lo-Fi, default) | 'youtube' (user custom URL)
   if (ytSourceLinkEl) ytSourceLinkEl.href = ytRadio.getVideoUrl();
 
+  function syncBuiltinAudioControls() {
+    btnEnableSound.hidden = musicMode !== 'builtin' || !hindiLofi.enabled || hindiLofi.playing;
+    if (musicMode === 'builtin') btnRadio.setAttribute('aria-pressed', String(hindiLofi.playing));
+  }
+
+  async function startBuiltinAudio() {
+    if (await hindiLofi.start()) showToast('Playing: Night Hindi Lo-Fi');
+  }
+
+  btnEnableSound.addEventListener('click', startBuiltinAudio);
+
   btnRadio.addEventListener('click', () => {
     if (musicMode === 'youtube') {
       const on = ytRadio.toggle();
       btnRadio.setAttribute('aria-pressed', String(on));
       showToast(on ? 'Lo-Fi Radio playing (YouTube)' : 'Lo-Fi Radio paused');
+    } else if (hindiLofi.playing) {
+      hindiLofi.stop();
+      showToast('Lo-Fi Radio paused');
     } else {
-      const on = hindiLofi.toggle();
-      btnRadio.setAttribute('aria-pressed', String(on));
-      showToast(on ? 'Playing: Night Hindi Lo-Fi' : 'Lo-Fi Radio paused');
+      startBuiltinAudio();
     }
   });
 
@@ -744,7 +757,6 @@ async function init() {
       if (musicMode === 'youtube' && ytRadio.enabled) ytRadio.toggle();
       musicMode = 'builtin';
       hindiLofi.start();
-      btnRadio.setAttribute('aria-pressed', 'true');
       showToast('Switched back to Night Hindi Lo-Fi');
       return;
     }
@@ -753,8 +765,8 @@ async function init() {
       showToast('Please paste a valid YouTube link or video ID');
       return;
     }
-    hindiLofi.stop();
     musicMode = 'youtube';
+    hindiLofi.stop();
     btnRadio.setAttribute('aria-pressed', 'true');
     if (ytSourceLinkEl) ytSourceLinkEl.href = ytRadio.getVideoUrl();
     ytUrlInput.value = '';
@@ -791,20 +803,18 @@ async function init() {
   // Load initial scene
   if (initialScene) await loadSceneById(initialScene.id, true);
 
-  // Default Night Hindi Lo-Fi ON (zero ads, instant Web Audio playback;
-  // unlocks automatically on the first pointer/key interaction if suspended).
+  // Try autoplay, then allow retries on touch release, click, and keyboard input.
   hindiLofi.start();
-  btnRadio.setAttribute('aria-pressed', 'true');
-  const unlockAudio = () => {
+  const unlockAudio = (event) => {
+    if (btnEnableSound.contains(event.target) || btnRadio.contains(event.target)) return;
     if (musicMode === 'youtube') {
       ytRadio.unlockIfPending();
-    } else {
+    } else if (hindiLofi.enabled && !hindiLofi.playing) {
       hindiLofi.unlockIfPending();
     }
-    window.removeEventListener('pointerdown', unlockAudio, true);
-    window.removeEventListener('keydown', unlockAudio, true);
   };
-  window.addEventListener('pointerdown', unlockAudio, true);
+  window.addEventListener('pointerup', unlockAudio, true);
+  window.addEventListener('click', unlockAudio, true);
   window.addEventListener('keydown', unlockAudio, true);
 
   const clock = new THREE.Clock();
@@ -843,14 +853,21 @@ async function init() {
     stonePulse = Math.max(0, stonePulse - dt * 0.75);
     teaSwirl = Math.max(0, teaSwirl - dt * 0.65);
 
-    torchCenter.lerp(torchTarget, reducedMotion ? 1 : 1 - Math.exp(-18 * dt));
+    if (!btnTorch.hidden) {
+      camera.updateMatrixWorld();
+      torchScreen.copy(torchWorld).project(camera);
+      const x = torchCanvas.left + (torchScreen.x + 1) * torchCanvas.width * 0.5;
+      const y = torchCanvas.top + (1 - torchScreen.y) * torchCanvas.height * 0.5;
+      btnTorch.style.left = `${x}px`;
+      btnTorch.style.top = `${y}px`;
+    }
     const elapsed = terraceTime();
     for (let i = 0; i < layerMaterials.length; i++) {
       const u = layerMaterials[i].uniforms;
       u.uTime.value = t;
       u.uTerraceTime.value = elapsed;
       u.uConstellationTime.value = elapsed + constellationOffset;
-      u.uTorch.value.set(torchCenter.x, torchCenter.y, torchOn ? 1 : 0);
+      u.uTorchOn.value = torchOn ? 1 : 0;
       u.uTerraceLampOn.value = terraceLampOn ? 1 : 0;
       u.uReducedMotion.value = paused ? 1.0 : reducedMotion;
       u.uLanternSwing.value = lanternAngle;

@@ -9,6 +9,8 @@
   <body>
     <main id="stage" aria-label="Interactive 2.5D Lo-Fi Diorama">
       <canvas id="diorama-canvas"></canvas>
+      <button id="btn-torch" class="scene-hotspot" type="button" aria-label="Flashlight"
+        aria-pressed="false" title="Switch flashlight on or off" hidden></button>
 
       <header class="title-card" aria-label="Scene title">
         <div id="title-native" class="title-jp">A Rooftop Sleepover</div>
@@ -29,9 +31,8 @@
 
       <!-- Minimal bottom-right corner launcher (keeps foreground scene 100% unobstructed) -->
       <div class="corner-launcher">
-        <button id="btn-torch" class="corner-btn" type="button" aria-pressed="false" hidden>
-          <span class="dot" aria-hidden="true"></span>
-          Torch
+        <button id="btn-enable-sound" class="corner-btn corner-btn--primary" type="button" hidden>
+          Tap for sound
         </button>
         <button
           id="btn-quick-pause"

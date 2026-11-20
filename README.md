@@ -17,6 +17,8 @@ npm run dev
 
 Open the address printed by Vite. The player starts on **India · Terrace**, and the scene selector offers the other dioramas. The exported textures are checked in, so this step needs only the JavaScript dependencies and a WebGL 2 browser. Use **Ambience** for the locally synthesized environmental audio. YouTube playback depends on the selected video's embedding settings and the browser's autoplay policy.
 
+If your browser blocks the built-in radio from starting automatically, tap **Tap for sound** to start it.
+
 ```bash
 npm run build
 npm run preview
@@ -179,7 +181,9 @@ channel confines the breeze to the potted plants. Two feathered regions on
 the foreground card animate the sleeping cousins' clothing in separate
 breathing cycles. The awake cousins chuckle, point, and swing their feet.
 The pointing gesture cues the Big Dipper, Boötes, and Corona Borealis in turn.
-Turn on **Torch** to sweep light across the terrace with a pointer or tap.
+Tap the flashlight beside the sleeping girl's pillow to switch its light on or off.
+The [transparent flashlight sprite](public/assets/scenes/summer-terrace/torch.png)
+uses the same top-left image coordinates as the other scene anchors.
 Tap the wall lamp to dim it or tap the sky to reveal the next constellation.
 **Controls** also provides buttons for both actions.
 The ambience uses crickets and a light breeze, with

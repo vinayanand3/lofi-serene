@@ -260,6 +260,11 @@ SCENES = [
             "stars": True,
             "moonGlow": 0.014,
             "terraceInteractions": True,
+            "torchProp": {
+                "file": "assets/scenes/summer-terrace/torch.png",
+                "center": [0.357, 0.749],
+                "size": [0.040, 0.033],
+            },
             "starLuma": [0.08, 0.40],
             "mist": 0.0,
             "cupSteam": False,
