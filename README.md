@@ -15,7 +15,7 @@ npm ci
 npm run dev
 ```
 
-Open the address printed by Vite and choose a scene. The exported textures are checked in, so this step needs only the JavaScript dependencies and a WebGL 2 browser. Use **Ambience** for the locally synthesized environmental audio. YouTube playback depends on the selected video's embedding settings and the browser's autoplay policy.
+Open the address printed by Vite. The player starts on **India · Terrace**, and the scene selector offers the other dioramas. The exported textures are checked in, so this step needs only the JavaScript dependencies and a WebGL 2 browser. Use **Ambience** for the locally synthesized environmental audio. YouTube playback depends on the selected video's embedding settings and the browser's autoplay policy.
 
 ```bash
 npm run build

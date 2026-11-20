@@ -160,6 +160,7 @@ async function init() {
   const catalogRes = await fetch('./assets/scenes.json');
   const catalog = await catalogRes.json();
   const scenesList = catalog.scenes || [];
+  const initialScene = scenesList.find((scene) => scene.id === 'summer-terrace') ?? scenesList[0];
 
   // --- Renderer ---
   const renderer = new THREE.WebGLRenderer({
@@ -505,12 +506,12 @@ async function init() {
   }
 
   // Build Scene Switcher Pills
-  scenesList.forEach((s, idx) => {
+  scenesList.forEach((s) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'scene-pill';
     btn.dataset.sceneId = s.id;
-    btn.setAttribute('aria-pressed', String(idx === 0));
+    btn.setAttribute('aria-pressed', String(s.id === initialScene?.id));
     btn.textContent = s.badge;
     btn.title = `Switch to ${s.title} (${s.region})`;
     btn.addEventListener('click', () => {
@@ -706,7 +707,7 @@ async function init() {
   btnQuickPause?.addEventListener('click', togglePause);
 
   // Load initial scene
-  await loadSceneById(scenesList[0]?.id || 'teahouse', true);
+  if (initialScene) await loadSceneById(initialScene.id, true);
 
   // Default Night Hindi Lo-Fi ON (zero ads, instant Web Audio playback;
   // unlocks automatically on the first pointer/key interaction if suspended).
