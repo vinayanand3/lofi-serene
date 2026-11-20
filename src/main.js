@@ -14,6 +14,7 @@ import {
 } from './shaders/fxShaders.js';
 import { TeahouseSoundscape } from './audio/soundscape.js';
 import { YouTubeRadio } from './audio/youtubeRadio.js';
+import { HindiLofiPlayer } from './audio/hindiLofi.js';
 
 const CAM_Z = 6.2;
 const FOV_DEG = 36;
@@ -613,24 +614,40 @@ async function init() {
     showToast(on ? 'Spatial ambience enabled' : 'Ambience muted');
   });
 
+  const hindiLofi = new HindiLofiPlayer();
   const ytRadio = new YouTubeRadio('yt-radio-host', {
     onError: (msg) => {
       showToast(msg);
     },
   });
+  let musicMode = 'builtin'; // 'builtin' (Night Hindi Lo-Fi, default) | 'youtube' (user custom URL)
   if (ytSourceLinkEl) ytSourceLinkEl.href = ytRadio.getVideoUrl();
 
   btnRadio.addEventListener('click', () => {
-    const on = ytRadio.toggle();
-    btnRadio.setAttribute('aria-pressed', String(on));
-    showToast(on ? 'Lo-Fi Radio playing (YouTube)' : 'Lo-Fi Radio paused');
+    if (musicMode === 'youtube') {
+      const on = ytRadio.toggle();
+      btnRadio.setAttribute('aria-pressed', String(on));
+      showToast(on ? 'Lo-Fi Radio playing (YouTube)' : 'Lo-Fi Radio paused');
+    } else {
+      const on = hindiLofi.toggle();
+      btnRadio.setAttribute('aria-pressed', String(on));
+      showToast(on ? 'Playing: Night Hindi Lo-Fi' : 'Lo-Fi Radio paused');
+    }
   });
 
   radioVolumeEl?.addEventListener('input', (e) => {
+    hindiLofi.setVolume(e.target.value);
     ytRadio.setVolume(e.target.value);
   });
 
   btnYtMini?.addEventListener('click', () => {
+    if (musicMode === 'builtin') {
+      // Switch to built-in toggle vs YouTube mini-player
+      const shown = ytRadioWrap?.classList.toggle('visible');
+      btnYtMini.textContent = shown ? 'Hide Player' : 'Show Player';
+      ytRadioWrap?.setAttribute('aria-hidden', String(!shown));
+      return;
+    }
     const shown = ytRadioWrap?.classList.toggle('visible');
     btnYtMini.textContent = shown ? 'Hide Player' : 'Show Player';
     ytRadioWrap?.setAttribute('aria-hidden', String(!shown));
@@ -638,12 +655,23 @@ async function init() {
 
   ytUrlForm?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const raw = ytUrlInput?.value || '';
+    const raw = (ytUrlInput?.value || '').trim();
+    if (!raw) {
+      // Empty submit switches back to built-in Night Hindi Lo-Fi
+      if (musicMode === 'youtube' && ytRadio.enabled) ytRadio.toggle();
+      musicMode = 'builtin';
+      hindiLofi.start();
+      btnRadio.setAttribute('aria-pressed', 'true');
+      showToast('Switched back to Night Hindi Lo-Fi');
+      return;
+    }
     const loadedId = ytRadio.loadVideo(raw);
     if (!loadedId) {
       showToast('Please paste a valid YouTube link or video ID');
       return;
     }
+    hindiLofi.stop();
+    musicMode = 'youtube';
     btnRadio.setAttribute('aria-pressed', 'true');
     if (ytSourceLinkEl) ytSourceLinkEl.href = ytRadio.getVideoUrl();
     ytUrlInput.value = '';
@@ -680,12 +708,16 @@ async function init() {
   // Load initial scene
   await loadSceneById(scenesList[0]?.id || 'teahouse', true);
 
-  // Default YouTube Lo-Fi Radio ON (starts immediately if autoplay is permitted,
-  // or unlocks automatically on the first pointer/key interaction).
-  ytRadio.init();
+  // Default Night Hindi Lo-Fi ON (zero ads, instant Web Audio playback;
+  // unlocks automatically on the first pointer/key interaction if suspended).
+  hindiLofi.start();
   btnRadio.setAttribute('aria-pressed', 'true');
   const unlockAudio = () => {
-    ytRadio.unlockIfPending();
+    if (musicMode === 'youtube') {
+      ytRadio.unlockIfPending();
+    } else {
+      hindiLofi.unlockIfPending();
+    }
     window.removeEventListener('pointerdown', unlockAudio, true);
     window.removeEventListener('keydown', unlockAudio, true);
   };
