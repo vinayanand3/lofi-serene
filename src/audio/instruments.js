@@ -127,6 +127,7 @@ export class Instruments {
       sitar: { bright: 0.65, t60: 3.0, len: 3.0, buzz: 0.4 },
       tanpura: { bright: 0.7, t60: 5.0, len: 5.0, buzz: 0.55 },
       bass: { bright: 0.18, t60: 1.4, len: 1.6, buzz: 0 },
+      steel: { bright: 0.42, t60: 3.2, len: 3.2, buzz: 0 },
     };
     const p = presets[kind] || presets.guitar;
     const sr = this.ctx.sampleRate;
@@ -334,7 +335,7 @@ export class Instruments {
     }
 
     const amp = this._gain(0);
-    const level = { eguitar: 0.3, guitar: 0.32, koto: 0.26, harp: 0.28, sitar: 0.22, tanpura: 0.12, bass: 0.5 }[kind] ?? 0.3;
+    const level = { steel: 0.27, eguitar: 0.3, guitar: 0.32, koto: 0.26, harp: 0.28, sitar: 0.22, tanpura: 0.12, bass: 0.5 }[kind] ?? 0.3;
     amp.gain.setValueAtTime(SILENT, t);
     amp.gain.linearRampToValueAtTime(level * vel, t + (kind === 'bass' ? 0.01 : 0.008));
     const ringEnd = opts.letRing ? t + ks.length : t + Math.min(dur + 0.08, ks.length);
@@ -342,6 +343,7 @@ export class Instruments {
 
     const tone = {
       guitar: this._filter('lowpass', 1900, 0.5),
+      steel: this._filter('lowpass', 2600, 0.5),
       eguitar: this._filter('lowpass', 2300, 0.8),
       koto: this._filter('lowpass', 2400, 0.5),
       harp: this._filter('lowpass', 2200, 0.5),
@@ -352,9 +354,9 @@ export class Instruments {
 
     src.connect(tone);
     let node = tone;
-    if (kind === 'guitar') {
-      const body = this._filter('peaking', 210, 1.2);
-      body.gain.value = 4;
+    if (kind === 'guitar' || kind === 'steel') {
+      const body = this._filter('peaking', kind === 'steel' ? 180 : 210, 1.2);
+      body.gain.value = kind === 'steel' ? 3 : 4;
       node.connect(body);
       node = body;
     }
@@ -515,6 +517,144 @@ export class Instruments {
     sum.connect(voice.out);
   }
 
+  // -------------------------------------------------------------- bowed
+
+  /** Soft string ensemble: three detuned saws, slow bow, gentle vibrato. */
+  strings(voice, t, m, dur, vel, opts = {}) {
+    const f = mtof(m);
+    const a = opts.attack ?? 1.4;
+    const r = opts.release ?? 2.2;
+    const end = t + dur + r * 1.8;
+    const vib = this._osc('sine', 4.6 + Math.random() * 0.6, t, end);
+    const vibG = this._gain(6);
+    vib.connect(vibG);
+    const oscs = [-10, 0, 9].map((c) => {
+      const o = this._osc('sawtooth', f, t, end);
+      o.detune.value = c;
+      vibG.connect(o.detune);
+      return o;
+    });
+    const lp = this._filter('lowpass', opts.cutoff ?? 1400, 0.4);
+    const hp = this._filter('highpass', opts.hp ?? 180, 0.5);
+    const amp = this._gain(0);
+    amp.gain.setValueAtTime(SILENT, t);
+    amp.gain.linearRampToValueAtTime(0.028 * vel, t + a);
+    amp.gain.setTargetAtTime(SILENT, t + Math.max(dur, a), r / 4);
+    oscs.forEach((o) => o.connect(lp));
+    lp.connect(hp);
+    hp.connect(amp);
+    const pan = this.ctx.createStereoPanner();
+    pan.pan.value = opts.pan ?? (Math.random() - 0.5) * 0.7;
+    amp.connect(pan);
+    pan.connect(voice.out);
+    oscs.forEach((o) => this._wobble(voice, o.detune, o));
+  }
+
+  /** Solo cello: warm bowed tone with a soft attack and delayed vibrato. */
+  cello(voice, t, m, dur, vel, opts = {}) {
+    const f = mtof(m);
+    const end = t + dur + 1.2;
+    const o = this._osc('sawtooth', f, t, end);
+    const o2 = this._osc('triangle', f, t, end);
+    o2.detune.value = -4;
+    if (opts.from != null) {
+      o.frequency.setValueAtTime(mtof(opts.from), t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.16);
+      o2.frequency.setValueAtTime(mtof(opts.from), t);
+      o2.frequency.exponentialRampToValueAtTime(f, t + 0.16);
+    }
+    const vib = this._osc('sine', 5.1, t, end);
+    const vibG = this._gain(0);
+    vibG.gain.setValueAtTime(0, t);
+    vibG.gain.linearRampToValueAtTime(0, t + 0.4);
+    vibG.gain.linearRampToValueAtTime(11, t + 1.1);
+    vib.connect(vibG);
+    vibG.connect(o.detune);
+    vibG.connect(o2.detune);
+    const lp = this._filter('lowpass', 850, 0.6);
+    const body = this._filter('peaking', 260, 1.0);
+    body.gain.value = 3;
+    const amp = this._gain(0);
+    this._adsr(amp.gain, t, dur, 0.075 * vel, opts.attack ?? 0.32, 0.8, 0.85, 0.7);
+    const o2g = this._gain(0.8);
+    o.connect(lp);
+    o2.connect(o2g);
+    o2g.connect(lp);
+    lp.connect(body);
+    body.connect(amp);
+    const pan = this.ctx.createStereoPanner();
+    pan.pan.value = opts.pan ?? -0.18;
+    amp.connect(pan);
+    pan.connect(voice.out);
+    this._wobble(voice, o.detune, o);
+  }
+
+  /** Pedal steel: swelling sustained tone that slides into each note. */
+  pedalsteel(voice, t, m, dur, vel, opts = {}) {
+    const f = mtof(m);
+    const end = t + dur + 1.4;
+    const from = opts.from != null ? mtof(opts.from) : f * Math.pow(2, -0.6 / 12);
+    const glide = opts.from != null ? 0.28 : 0.14;
+    const mk = (type, ratio, detune) => {
+      const o = this._osc(type, f * ratio, t, end);
+      o.frequency.setValueAtTime(from * ratio, t);
+      o.frequency.exponentialRampToValueAtTime(f * ratio, t + glide);
+      o.detune.value = detune;
+      return o;
+    };
+    const o1 = mk('triangle', 1, 0);
+    const o2 = mk('sine', 2, 3);
+    const o3 = mk('triangle', 1, 6);
+    const g2 = this._gain(0.18);
+    const g3 = this._gain(0.5);
+    o2.connect(g2);
+    o3.connect(g3);
+    const vib = this._osc('sine', 4.3, t, end);
+    const vibG = this._gain(0);
+    vibG.gain.setValueAtTime(0, t + 0.5);
+    vibG.gain.linearRampToValueAtTime(6, t + 1.3);
+    vib.connect(vibG);
+    vibG.connect(o1.detune);
+    const lp = this._filter('lowpass', 2000, 0.5);
+    const amp = this._gain(0);
+    // volume-pedal swell
+    amp.gain.setValueAtTime(SILENT, t);
+    amp.gain.linearRampToValueAtTime(0.11 * vel, t + (opts.attack ?? 0.28));
+    amp.gain.setTargetAtTime(0.08 * vel, t + 0.3, 1.2);
+    amp.gain.setTargetAtTime(SILENT, t + dur, 0.35);
+    o1.connect(lp);
+    g2.connect(lp);
+    g3.connect(lp);
+    lp.connect(amp);
+    const pan = this.ctx.createStereoPanner();
+    pan.pan.value = opts.pan ?? 0.22;
+    amp.connect(pan);
+    pan.connect(voice.out);
+    this._wobble(voice, o1.detune, o1);
+  }
+
+  /** Glockenspiel: bright, short metal bar for soft sparkles. */
+  glock(voice, t, m, dur, vel, opts = {}) {
+    const f = mtof(m);
+    const end = t + 3;
+    const sum = this._gain(1);
+    [
+      [1, 1, 0.8],
+      [2.76, 0.22, 0.22],
+      [5.4, 0.06, 0.07],
+    ].forEach(([ratio, a, tc]) => {
+      const o = this._osc('sine', f * ratio, t, end);
+      const g = this._gain(0);
+      this._perc(g.gain, t, 0.09 * vel * a, 0.002, tc);
+      o.connect(g);
+      g.connect(sum);
+    });
+    const pan = this.ctx.createStereoPanner();
+    pan.pan.value = opts.pan ?? 0.3;
+    sum.connect(pan);
+    pan.connect(voice.out);
+  }
+
   // ---------------------------------------------------------------- winds
 
   /** Bansuri-style breathy bamboo flute with meend glides and delayed vibrato. */
@@ -529,11 +669,12 @@ export class Instruments {
       o.frequency.setValueAtTime(f * 0.988, t);
       o.frequency.exponentialRampToValueAtTime(f, t + 0.09);
     }
-    const vib = this._osc('sine', 4.8, t, end);
+    const pure = Boolean(opts.pure);
+    const vib = this._osc('sine', pure ? 5.3 : 4.8, t, end);
     const vibG = this._gain(0);
     vibG.gain.setValueAtTime(0, t);
     vibG.gain.linearRampToValueAtTime(0, t + 0.35);
-    vibG.gain.linearRampToValueAtTime(f * 0.0065, t + 0.9);
+    vibG.gain.linearRampToValueAtTime(f * (pure ? 0.0045 : 0.0065), t + 0.9);
     vib.connect(vibG);
     vibG.connect(o.frequency);
 
@@ -544,14 +685,14 @@ export class Instruments {
     const bp = this._filter('bandpass', f * 1.6, 1.3);
     const bg = this._gain(0);
     bg.gain.setValueAtTime(SILENT, t);
-    bg.gain.linearRampToValueAtTime(0.05 * vel, t + 0.05);
-    bg.gain.setTargetAtTime(0.012 * vel, t + 0.05, 0.12);
+    bg.gain.linearRampToValueAtTime((pure ? 0.022 : 0.05) * vel, t + 0.05);
+    bg.gain.setTargetAtTime((pure ? 0.005 : 0.012) * vel, t + 0.05, 0.12);
     bg.gain.setTargetAtTime(SILENT, t + dur, 0.08);
     breath.connect(bp);
     bp.connect(bg);
     bg.connect(amp);
 
-    const lp = this._filter('lowpass', 3400, 0.5);
+    const lp = this._filter('lowpass', pure ? 2400 : 3400, 0.5);
     o.connect(lp);
     lp.connect(amp);
     const pan = this.ctx.createStereoPanner();

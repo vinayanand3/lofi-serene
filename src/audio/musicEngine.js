@@ -20,7 +20,7 @@ const SMOOTH = {
   toneMax: 3200, // nothing bright or sharp
   wobble: 0.55, // gentle tape movement, never seasick
   vinyl: 0.45,
-  parts: { drums: 0.55, tabla: 0.7, lead: 0.8, arp: 0.75, bass: 0.9 },
+  parts: { drums: 0.55, tabla: 0.7, lead: 0.8, arp: 0.75, bass: 0.9, melody: 0.85, counter: 0.7 },
 };
 
 function mulberry32(seed) {
@@ -113,7 +113,21 @@ export function getStation(id) {
   return STATIONS.find((s) => s.id === id) || STATIONS[0];
 }
 
-const PARTS = ['chords', 'lead', 'bass', 'drums', 'drone', 'arp', 'tabla'];
+const PARTS = ['chords', 'pad', 'lead', 'melody', 'counter', 'bass', 'drums', 'drone', 'arp', 'tabla'];
+
+/** Move a MIDI note by `steps` scale degrees in the given key (for harmony lines). */
+function diatonicShift(m, steps, key) {
+  const { root, scale } = key;
+  const n = scale.length;
+  const rel = m - root;
+  const oct = Math.floor(rel / 12);
+  const pc = ((rel % 12) + 12) % 12;
+  let idx = 0;
+  for (let i = 0; i < n; i++) if (scale[i] <= pc) idx = i;
+  const d = idx + steps;
+  const o = oct + Math.floor(d / n);
+  return root + 12 * o + scale[((d % n) + n) % n];
+}
 
 export class StationPlayer {
   constructor(ctx, destination, station) {
@@ -123,7 +137,10 @@ export class StationPlayer {
     this.rng = mulberry32(hashStr(station.id) ^ Math.floor(Math.random() * 1e9));
     this.beat = 60 / station.bpm;
     this.step = this.beat / 4;
-    this.barDur = this.beat * 4;
+    this.beatsPerBar = station.meter || 4;
+    this.stepsPerBar = this.beatsPerBar * 4;
+    this.barDur = this.beat * this.beatsPerBar;
+    this.lastMelody = {};
     this.bar = 0;
     this.nextBarTime = 0;
     this.phrase = null;
@@ -140,16 +157,23 @@ export class StationPlayer {
   // ------------------------------------------------------------ structure
 
   _expandForm() {
-    this.form = this.station.form.map((s) => ({ bars: s.bars, parts: new Set(s.parts) }));
+    this.form = this.station.form.map((s) => ({ ...s, parts: new Set(s.parts) }));
     this.formBars = this.form.reduce((n, s) => n + s.bars, 0);
   }
 
   _expandProgression() {
-    this.chordBars = [];
-    this.station.progression.forEach((c) => {
-      for (let i = 0; i < c.bars; i++) {
-        this.chordBars.push({ chord: c, first: i === 0, len: c.bars });
-      }
+    const expand = (prog) => {
+      const out = [];
+      prog.forEach((c) => {
+        for (let i = 0; i < c.bars; i++) out.push({ chord: c, first: i === 0, len: c.bars });
+      });
+      return out;
+    };
+    this.chordBars = expand(this.station.progression);
+    // optional named progressions, chosen per form section with `prog`
+    this.progBars = {};
+    Object.entries(this.station.progressions || {}).forEach(([k, prog]) => {
+      this.progBars[k] = expand(prog);
     });
   }
 
@@ -163,6 +187,9 @@ export class StationPlayer {
   }
 
   _chordAt(bar) {
+    const sec = this._section(bar);
+    const bars = (sec.prog && this.progBars[sec.prog]) || null;
+    if (bars) return bars[sec.barInSection % bars.length];
     return this.chordBars[bar % this.chordBars.length];
   }
 
@@ -456,6 +483,18 @@ export class StationPlayer {
         return I.flute(v, t, m, dur, vel, opts);
       case 'synthPluck':
         return I.synthPluck(v, t, m, dur, vel, opts);
+      case 'steel':
+        return I.pluck(v, t, m, dur, vel, { ...opts, kind: 'steel' });
+      case 'strings':
+        return I.strings(v, t, m, dur, vel, opts);
+      case 'cello':
+        return I.cello(v, t, m, dur, vel, opts);
+      case 'pedalsteel':
+        return I.pedalsteel(v, t, m, dur, vel, opts);
+      case 'glock':
+        return I.glock(v, t, m, dur, vel, opts);
+      case 'ocarina':
+        return I.flute(v, t, m, dur, vel, { ...opts, pure: true });
       default:
         return undefined;
     }
@@ -478,6 +517,7 @@ export class StationPlayer {
     const p = sec.parts;
     if (p.has('drone')) this._drone(c);
     if (p.has('chords')) this._comp(c);
+    if (p.has('pad')) this._pad(c);
     if (p.has('arp')) this._arp(c);
     if (p.has('bass')) this._bass(c);
     if (p.has('drums')) this._drums(c, false);
@@ -485,6 +525,55 @@ export class StationPlayer {
     if (p.has('tabla')) this._tabla(c);
     if (p.has('lead')) this._lead(c);
     else this.phrase = null;
+    if (sec.melody) this._melody(c, sec.melody, 'melody');
+    if (sec.counter) this._melody(c, sec.counter, 'counter');
+  }
+
+  /** Sustained string or pad bed that swells in on each chord change. */
+  _pad(c) {
+    const cfg = this.station.pad;
+    if (!cfg || !c.first) return;
+    const dur = c.len * this.barDur + 0.2;
+    c.chord.notes.forEach((m, i) => {
+      const t = c.t0 + i * 0.06 + this._human(20);
+      this._play(cfg.inst, 'pad', t, m + (cfg.oct || 0), dur, cfg.vel * (0.9 + this._r() * 0.1), cfg.opts || {});
+    });
+  }
+
+  /**
+   * Written melody: plays one bar of a composed line (station.lines) per bar.
+   * Each pass varies a little: humanized timing and dynamics, the odd grace
+   * note, and optional harmony a few scale degrees away.
+   */
+  _melody(c, cfg, part) {
+    const line = this.station.lines?.[cfg.line];
+    if (!line) return;
+    const barNotes = line[c.sec.barInSection % line.length] || [];
+    const key = this.station.key;
+    const legato = cfg.legato ?? 0.95;
+    const grace = cfg.grace ?? 0.1;
+    barNotes.forEach(([s, m0, d], i) => {
+      if (cfg.firstOnly && i > 0) return;
+      if (cfg.sparse && i > 0 && this._r() < cfg.sparse) return;
+      let m = m0 + (cfg.oct || 0);
+      if (cfg.harm && key) m = diatonicShift(m, cfg.harm, key);
+      const t = this._stepTime(c.t0, s + (cfg.shift || 0)) + this._human(9);
+      const dur = Math.max(0.12, (cfg.dur ?? d) * this.step * legato);
+      // gentle phrase shape: downbeats and longer notes sing a little more
+      const shape = (s === 0 ? 1 : 0.88) * (d >= 6 ? 1.04 : 0.96);
+      const vel = (cfg.vel ?? 0.7) * shape * (0.9 + this._r() * 0.14);
+      const opts = { ...(cfg.opts || {}) };
+      const prev = this.lastMelody[part];
+      // slides are idiomatic on pedal steel and cello; winds only slur now and then
+      const slides = ['pedalsteel', 'cello'].includes(cfg.inst) || (['flute', 'ocarina'].includes(cfg.inst) && this._r() < 0.25);
+      if (slides && prev != null && prev !== m && Math.abs(prev - m) <= 4) opts.from = prev;
+      if (key && d >= 4 && i > 0 && this._r() < grace && ['felt', 'flute', 'ocarina', 'harp', 'guitar', 'steel'].includes(cfg.inst)) {
+        const up = diatonicShift(m, 1, key);
+        this._play(cfg.inst, part, t - 0.07, up, 0.09, vel * 0.45, { ...(cfg.opts || {}) });
+      }
+      this._play(cfg.inst, part, t, m, dur, vel, opts);
+      this.lastMelody[part] = m;
+    });
   }
 
   _comp(c) {
@@ -506,7 +595,7 @@ export class StationPlayer {
         if (this._r() < 0.65) play(10, 5, 0.6, notes.slice(-3));
         break;
       case 'swell':
-        if (c.first) play(0, c.len * 16 + 2, 1);
+        if (c.first) play(0, c.len * this.stepsPerBar + 2, 1);
         break;
       case 'jazz': {
         const bank = [
@@ -540,8 +629,53 @@ export class StationPlayer {
         });
         break;
       }
+      case 'waltz': {
+        // flowing broken chord in 3/4: low note, then a rising and falling arc
+        const low = this._bassRoot(c.chord.bass) + 12;
+        const up = [...notes].sort((a, b) => a - b);
+        const arc = c.bar % 2 === 0 ? [low, up[0], up[1], up[2], up[3] ?? up[2], up[2]] : [low, up[1], up[2], up[3] ?? up[2], up[2], up[1]];
+        arc.forEach((m, i) => {
+          const s = i * 2;
+          const t = this._stepTime(c.t0, s) + this._human(10);
+          const v = (i === 0 ? 0.95 : 0.62) * cfg.vel * (0.9 + this._r() * 0.14);
+          this._play(cfg.inst, 'chords', t, m, (i === 0 ? 11 : 5) * this.step, v, cfg.opts);
+        });
+        break;
+      }
+      case 'fingerpick': {
+        // p-i-m-a fingerstyle on eighths, thumb on the low note
+        const low = this._bassRoot(c.chord.bass) + 12;
+        const up = [...notes].sort((a, b) => a - b);
+        const order = c.bar % 2 === 0 ? [low, up[1], up[2], up[3] ?? up[2], up[0] + 12 > 72 ? up[2] : up[1], up[2], up[1], up[2]] : [low, up[2], up[1], up[3] ?? up[2], low + 7, up[2], up[3] ?? up[1], up[1]];
+        order.forEach((m, i) => {
+          if (i > 0 && this._r() < 0.08) return;
+          const s = i * 2;
+          const t = this._stepTime(c.t0, s) + this._human(12);
+          const v = (i === 0 ? 0.95 : i === 4 ? 0.78 : 0.6) * cfg.vel * (0.9 + this._r() * 0.15);
+          this._play(cfg.inst, 'chords', t, m, (i % 4 === 0 ? 7 : 5) * this.step, v, cfg.opts);
+        });
+        break;
+      }
+      case 'travis': {
+        // alternating thumb bass with syncopated treble pinches
+        const root = this._bassRoot(c.chord.bass) + 12;
+        const alt = root + 7 > 57 ? root - 5 : root + 7;
+        const up = [...notes].sort((a, b) => a - b);
+        const top = up[up.length - 1];
+        [[0, root], [4, alt], [8, root], [12, alt]].forEach(([s, m], i) => {
+          const t = this._stepTime(c.t0, s) + this._human(8);
+          this._play(cfg.inst, 'chords', t, m, 3.6 * this.step, cfg.vel * (i % 2 ? 0.72 : 0.85), { ...cfg.opts, pan: -0.12 });
+        });
+        const treble = c.bar % 2 === 0 ? [[0, top], [3, up[2]], [6, up[1]], [10, up[2]], [14, top]] : [[2, up[2]], [6, top], [10, up[1]], [12, up[2]], [14, up[1]]];
+        treble.forEach(([s, m]) => {
+          if (s > 0 && this._r() < 0.1) return;
+          const t = this._stepTime(c.t0, s) + this._human(10);
+          this._play(cfg.inst, 'chords', t, m, 4 * this.step, cfg.vel * 0.58 * (0.9 + this._r() * 0.15), { ...cfg.opts, pan: 0.14 });
+        });
+        break;
+      }
       default:
-        play(0, 15, 1);
+        play(0, this.stepsPerBar - 1, 1);
     }
   }
 
@@ -586,7 +720,7 @@ export class StationPlayer {
         if (this._r() < 0.8) hit(10, this._r() < 0.3 ? root + 12 : root, 5, 0.6);
         break;
       case 'long':
-        if (c.first) hit(0, root, c.len * 16 - 1, 0.55);
+        if (c.first) hit(0, root, c.len * this.stepsPerBar - 1, cfg.vel ?? 0.55);
         break;
       case 'walk': {
         const pcs = c.chord.notes.map((m) => (((m - root) % 12) + 12) % 12).filter((x) => x > 0);
@@ -606,6 +740,13 @@ export class StationPlayer {
         hit(0, root, 6, 0.95, { from: this.lastBass != null && Math.abs(this.lastBass - root) <= 5 ? this.lastBass : null });
         if (this._r() < 0.6) hit(7, root + 12, 2, 0.5, { from: root });
         hit(10, root + 7, 5, 0.7);
+        break;
+      case 'country':
+        hit(0, root, 7, 0.85);
+        hit(8, root + 7 > 50 ? root - 5 : root + 7, 7, 0.65);
+        break;
+      case 'waltz':
+        hit(0, root, 10, 0.8);
         break;
       case 'pulse':
         for (let s = 0; s < 16; s += 2) hit(s, root, 1.5, s % 8 === 0 ? 0.8 : 0.5);
@@ -695,6 +836,20 @@ export class StationPlayer {
           if (s % 2 === 1) continue;
           I.hat(v, at(s, 0.008), hv[s % 4]);
         }
+        break;
+      }
+      case 'brushes': {
+        // soft Americana brushes: long sweeps, gentle taps on 2 and 4
+        I.kick(v, at(0), 0.25, { tc: 0.1, click: 0 });
+        I.kick(v, at(8), 0.2, { tc: 0.1, click: 0 });
+        I.brush(v, at(0), 0.55, this.beat * 1.8);
+        I.brush(v, at(8), 0.5, this.beat * 1.8);
+        if (!light) {
+          I.snare(v, at(4), 0.14, { dusty: true, tc: 0.05 });
+          I.snare(v, at(12), 0.16, { dusty: true, tc: 0.05 });
+        }
+        I.shaker(v, at(6), 0.18);
+        I.shaker(v, at(14), 0.18);
         break;
       }
       case 'halftime': {
@@ -854,7 +1009,8 @@ export class StationPlayer {
     notes.forEach((n) => {
       if (n.s < off || n.s >= off + 16) return;
       const s = n.s - off;
-      const deg = s % 8 === 0 ? this._snap(n.deg, c.chord) : n.deg;
+      // land downbeats and held notes on chord tones so phrases sound settled
+      const deg = s % 8 === 0 || n.d >= 6 ? this._snap(n.deg, c.chord) : n.deg;
       const m = this._degToMidi(deg);
       const t = this._stepTime(c.t0, s) + this._human(10);
       const dur = n.d * this.step * (L.legato ?? 0.92);

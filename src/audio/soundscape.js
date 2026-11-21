@@ -2,9 +2,10 @@
  * Procedural spatial Web Audio soundscape + generative Lo-Fi radio.
  *
  * Ambience (breeze, stream, rain, crickets, accents) and click foley live here.
- * The radio is driven by musicEngine.js: twelve original station recipes
+ * The radio is driven by musicEngine.js: original station recipes
  * (stations.js) rendered live from synthesized instruments, with no
- * external audio files, samples or third-party recordings.
+ * external audio files, samples or third-party recordings. Night Hindi Lo-Fi
+ * (hindiLofi.js) is listed as an "external" station that main.js plays itself.
  */
 
 import { StationPlayer, createRadioOutput, LOOKAHEAD } from './musicEngine.js';
@@ -17,7 +18,7 @@ const AMBIENCE_PROFILES = {
     streamLevel: 0.14,
     crickets: true,
     accent: 'bamboo',
-    defaultTrack: 'kyoto_dusk',
+    defaultTrack: 'meadow_waltz',
   },
   india_monsoon: {
     rainLevel: 0.42,
@@ -33,7 +34,7 @@ const AMBIENCE_PROFILES = {
     streamLevel: 0.08,
     crickets: false,
     accent: 'wind_chime',
-    defaultTrack: 'cedar_fog',
+    defaultTrack: 'cascade_porch',
   },
   india_himalaya: {
     rainLevel: 0.0,
@@ -49,7 +50,7 @@ const AMBIENCE_PROFILES = {
     streamLevel: 0.03,
     crickets: true,
     accent: 'wind_chime',
-    defaultTrack: 'rainy_rhodes',
+    defaultTrack: 'fireside_drizzle',
   },
   india_summer: {
     rainLevel: 0.0,
@@ -57,11 +58,11 @@ const AMBIENCE_PROFILES = {
     streamLevel: 0.0,
     crickets: true,
     accent: 'wind_chime',
-    defaultTrack: 'starlight_drift',
+    defaultTrack: 'night_hindi',
   },
 };
 
-const CHOICES_KEY = 'lofi-serene.sceneTracks';
+const CHOICES_KEY = 'lofi-serene.sceneTracks.v2';
 
 function loadSceneChoices() {
   try {
@@ -83,15 +84,29 @@ function saveSceneChoices(choices) {
 
 const USE_LABEL = { study: 'Study', sleep: 'Sleep' };
 
+/** Played by HindiLofiPlayer in main.js rather than the station engine. */
+export const EXTERNAL_HINDI_ID = 'night_hindi';
+
 /** Station list for the UI (id, name, bpm, tag). */
-export const RADIO_TRACKS = STATIONS.map((s) => ({
-  id: s.id,
-  name: s.name,
-  bpm: s.bpm,
-  use: s.use,
-  style: s.style,
-  tag: `${USE_LABEL[s.use] || 'Study'} · ${s.style}`,
-}));
+export const RADIO_TRACKS = [
+  ...STATIONS.map((s) => ({
+    id: s.id,
+    name: s.name,
+    bpm: s.bpm,
+    use: s.use,
+    style: s.style,
+  })),
+  {
+    id: EXTERNAL_HINDI_ID,
+    name: 'Night Hindi Lo-Fi',
+    bpm: 70,
+    use: 'study',
+    style: 'Hindi lo-fi · bansuri & acoustic guitar',
+    external: true,
+  },
+].map((t) => ({ ...t, tag: `${USE_LABEL[t.use] || 'Study'} · ${t.style}` }));
+
+const stationById = (id) => STATIONS.find((s) => s.id === id) || null;
 
 const RADIO_LEVEL = 0.75;
 const CROSSFADE = 2.5;
@@ -119,6 +134,8 @@ export class TeahouseSoundscape {
     this.accentTimer = null;
     this.radioTimer = null;
     this.player = null;
+    this.radioVolume = 1;
+    this.ambienceVolume = 1;
   }
 
   _ambience() {
@@ -130,10 +147,14 @@ export class TeahouseSoundscape {
   }
 
   _setTrackIndex(idx) {
-    if (idx === this.trackIndex && this.player) return;
+    if (idx === this.trackIndex && (this.player || this.getCurrentTrack().external)) return;
     this.trackIndex = idx;
     if (!this.ctx) return;
-    if (this.radioOn && this.ctx.state === 'running') {
+    if (this.getCurrentTrack().external) {
+      // played outside the engine: just let the engine station fade away
+      this.player?.stop(CROSSFADE);
+      this.player = null;
+    } else if (this.radioOn && this.ctx.state === 'running') {
       this._switchPlayer();
     } else if (this.player) {
       // Radio is off: drop the old station; the new one starts on resume.
@@ -151,9 +172,33 @@ export class TeahouseSoundscape {
     return this.getCurrentTrack();
   }
 
-  nextTrack() {
-    const next = RADIO_TRACKS[(this.trackIndex + 1) % RADIO_TRACKS.length];
+  /** Step through stations; `filter` ('study' | 'sleep' | null) limits the list. */
+  stepTrack(dir = 1, filter = null) {
+    const list = RADIO_TRACKS.filter((t) => !filter || t.use === filter);
+    if (!list.length) return this.getCurrentTrack();
+    const cur = list.findIndex((t) => t.id === this.getCurrentTrack().id);
+    const next = list[(cur + dir + list.length) % list.length];
     return this.selectTrack(next.id);
+  }
+
+  nextTrack(filter = null) {
+    return this.stepTrack(1, filter);
+  }
+
+  /** Music level, 0 to 1 (applies while the built-in radio plays). */
+  setRadioVolume(v) {
+    this.radioVolume = Math.max(0, Math.min(1, v));
+    if (this.ctx && this.radioOn) {
+      this.radioGain.gain.setTargetAtTime(RADIO_LEVEL * this.radioVolume + 0.0001, this.ctx.currentTime, 0.12);
+    }
+  }
+
+  /** Ambience level, 0 to 1. */
+  setAmbienceVolume(v) {
+    this.ambienceVolume = Math.max(0, Math.min(1, v));
+    if (this.ctx && this.ambienceOn) {
+      this.ambienceGain.gain.setTargetAtTime(0.95 * this.ambienceVolume + 0.0001, this.ctx.currentTime, 0.12);
+    }
   }
 
   setProfile(profileKey) {
@@ -194,6 +239,8 @@ export class TeahouseSoundscape {
     this.ambienceGain.gain.value = 0.0001;
     this.ambienceGain.connect(this.masterGain);
 
+    this.ctx.addEventListener('statechange', () => this.onStateChange?.());
+
     this._buildBreeze(amb.breezeLevel);
     this._buildStream(amb.streamLevel);
     this._buildRain(amb.rainLevel);
@@ -211,7 +258,8 @@ export class TeahouseSoundscape {
     const now = this.ctx.currentTime;
     const hadPlayer = Boolean(this.player);
     if (hadPlayer) this.player.stop(CROSSFADE);
-    const station = STATIONS[this.trackIndex] || STATIONS[0];
+    const station = stationById(this.getCurrentTrack().id);
+    if (!station) return false;
     this.player = new StationPlayer(this.ctx, this.radioOut.input, station);
     this.player.start(now + 0.12, hadPlayer ? CROSSFADE : 0.6);
     this._pumpRadio();
@@ -226,7 +274,8 @@ export class TeahouseSoundscape {
     if (!this.ctx || this.ctx.state !== 'running') return false;
     const now = this.ctx.currentTime;
     if (!this.player) {
-      const station = STATIONS[this.trackIndex] || STATIONS[0];
+      const station = stationById(this.getCurrentTrack().id);
+      if (!station) return false;
       this.player = new StationPlayer(this.ctx, this.radioOut.input, station);
       this.player.start(now + 0.12, 1.2);
     } else {
@@ -433,11 +482,16 @@ export class TeahouseSoundscape {
     );
   }
   toggleAmbience() {
+    return this.setAmbience(!this.ambienceOn);
+  }
+
+  setAmbience(on, fade = 0.45) {
     this._ensureContext();
-    this.ambienceOn = !this.ambienceOn;
+    this.ambienceOn = on;
     const now = this.ctx.currentTime;
     this.ambienceGain.gain.cancelScheduledValues(now);
-    this.ambienceGain.gain.setTargetAtTime(this.ambienceOn ? 0.95 : 0.0001, now, 0.45);
+    this.ambienceGain.gain.setValueAtTime(this.ambienceGain.gain.value, now);
+    this.ambienceGain.gain.setTargetAtTime(this.ambienceOn ? 0.95 * this.ambienceVolume + 0.0001 : 0.0001, now, this.ambienceOn ? 0.45 : fade / 3);
 
     if (this.ambienceOn) {
       this._scheduleCricket();
@@ -450,11 +504,17 @@ export class TeahouseSoundscape {
   }
 
   toggleRadio() {
+    return this.setRadio(!this.radioOn);
+  }
+
+  /** Turn the built-in station engine on or off (fade in seconds when turning off). */
+  setRadio(on, fade = 0.4) {
     this._ensureContext();
-    this.radioOn = !this.radioOn;
+    this.radioOn = on;
     const now = this.ctx.currentTime;
     this.radioGain.gain.cancelScheduledValues(now);
-    this.radioGain.gain.setTargetAtTime(this.radioOn ? RADIO_LEVEL : 0.0001, now, 0.4);
+    this.radioGain.gain.setValueAtTime(this.radioGain.gain.value, now);
+    this.radioGain.gain.setTargetAtTime(this.radioOn ? RADIO_LEVEL * this.radioVolume + 0.0001 : 0.0001, now, this.radioOn ? 0.4 : fade / 3);
 
     if (this.radioOn) {
       if (!this._startRadioLoop()) {
@@ -472,7 +532,7 @@ export class TeahouseSoundscape {
     this.radioOn = true;
     const now = this.ctx.currentTime;
     this.radioGain.gain.cancelScheduledValues(now);
-    this.radioGain.gain.setTargetAtTime(RADIO_LEVEL, now, 0.4);
+    this.radioGain.gain.setTargetAtTime(RADIO_LEVEL * this.radioVolume + 0.0001, now, 0.4);
     return this._startRadioLoop();
   }
 
@@ -494,6 +554,28 @@ export class TeahouseSoundscape {
     const now = this.ctx.currentTime;
     this.breezePanner.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, -0.28 - normX * 0.3)), now, 0.15);
     this.streamPanner.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, 0.34 - normX * 0.3)), now, 0.15);
+  }
+
+  /** Soft two-tone bell for the focus timer (plays even when music is off). */
+  playBell() {
+    this._ensureContext();
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    const now = this.ctx.currentTime + 0.05;
+    [[659.25, 0], [987.77, 0.42], [659.25, 0.84]].forEach(([freq, d]) => {
+      [1, 2.76].forEach((ratio, k) => {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq * ratio;
+        const env = this.ctx.createGain();
+        env.gain.setValueAtTime(0.0001, now + d);
+        env.gain.linearRampToValueAtTime(k ? 0.012 : 0.06, now + d + 0.01);
+        env.gain.exponentialRampToValueAtTime(0.0001, now + d + (k ? 0.6 : 2.4));
+        osc.connect(env);
+        env.connect(this.masterGain);
+        osc.start(now + d);
+        osc.stop(now + d + 2.5);
+      });
+    });
   }
 
   // --- Interactive Tactile Foley ---

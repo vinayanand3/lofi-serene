@@ -1,7 +1,7 @@
 /**
  * "Night Hindi Lo-Fi" — Original Procedural Slowed + Reverb Web Audio Composition
  * Inspired by late-night chill Hindi lo-fi (nostalgic acoustic guitar arpeggios,
- * breathy bansuri flute with meend pitch glides, warm tape Rhodes, lush ConvolverNode
+ * breathy bansuri flute with meend pitch glides, warm string pads, lush ConvolverNode
  * hall reverb, vinyl warmth, and a soft slowed boom-bap / tabla-inflected groove).
  *
  * Zero external audio files, zero ads, instant playback.
@@ -17,7 +17,7 @@ function mtof(midi) {
 // Three evolving 8-bar sections (24 bars = ~82s cycle with melodic variations)
 // Key: A natural minor / C major (warm nostalgic Hindi-lofi tonality)
 const SECTIONS = [
-  // Section A — "Midnight Rain" (Bansuri flute + acoustic guitar arpeggios + Rhodes)
+  // Section A — "Midnight Rain" (Bansuri flute + acoustic guitar arpeggios + string pad)
   {
     name: 'Midnight Rain',
     lead: 'bansuri',
@@ -45,10 +45,10 @@ const SECTIONS = [
       [[0.5, 68, 1.8, 1], [2.5, 71, 1.4, -2]],
     ],
   },
-  // Section B — "Terrace Breeze" (Warm Rhodes chorus melody + gentle bass + groove)
+  // Section B — "Terrace Breeze" (Bansuri chorus melody + gentle bass + groove)
   {
     name: 'Terrace Breeze',
-    lead: 'rhodes',
+    lead: 'bansuri',
     drums: true,
     guitarArp: true,
     chords: [
@@ -246,45 +246,47 @@ export class HindiLofiPlayer {
   }
 
   // --- Instruments ---
-  _playRhodesChord(midiNotes, startTime, duration) {
+  /** Soft string-pad chord (slow bow attack, no piano strike). */
+  _playPadChord(midiNotes, startTime, duration) {
     midiNotes.forEach((m, idx) => {
-      const t = startTime + idx * 0.042;
+      const t = startTime + idx * 0.06;
       const freq = mtof(m);
       const osc1 = this.ctx.createOscillator();
       const osc2 = this.ctx.createOscillator();
-      osc1.type = 'sine';
+      osc1.type = 'sawtooth';
       osc2.type = 'triangle';
-      const detune = (Math.random() - 0.5) * 8;
+      const detune = 5 + Math.random() * 4;
       osc1.frequency.setValueAtTime(freq, t);
-      osc2.frequency.setValueAtTime(freq * 2, t);
+      osc2.frequency.setValueAtTime(freq, t);
       osc1.detune.value = detune;
-      osc2.detune.value = -detune * 0.6;
+      osc2.detune.value = -detune;
 
-      const overG = this.ctx.createGain();
-      overG.gain.value = 0.11;
+      const sawG = this.ctx.createGain();
+      sawG.gain.value = 0.35;
 
       const lp = this.ctx.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(1150, t);
-      lp.frequency.exponentialRampToValueAtTime(420, t + duration);
+      lp.frequency.setValueAtTime(820, t);
+      lp.Q.value = 0.4;
 
       const env = this.ctx.createGain();
+      const attack = Math.min(0.9, duration * 0.3);
       env.gain.setValueAtTime(0.0001, t);
-      env.gain.linearRampToValueAtTime(0.068, t + 0.04);
-      env.gain.exponentialRampToValueAtTime(0.032, t + duration * 0.55);
-      env.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      env.gain.linearRampToValueAtTime(0.034, t + attack);
+      env.gain.setValueAtTime(0.034, t + duration * 0.7);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + duration + 0.5);
 
-      osc1.connect(lp);
-      osc2.connect(overG);
-      overG.connect(lp);
+      osc1.connect(sawG);
+      sawG.connect(lp);
+      osc2.connect(lp);
       lp.connect(env);
       env.connect(this.dryBus);
       env.connect(this.reverbSend);
 
       osc1.start(t);
       osc2.start(t);
-      osc1.stop(t + duration + 0.06);
-      osc2.stop(t + duration + 0.06);
+      osc1.stop(t + duration + 0.6);
+      osc2.stop(t + duration + 0.6);
     });
   }
 
@@ -372,41 +374,6 @@ export class HindiLofiPlayer {
     osc.stop(startTime + duration + 0.08);
     vib.stop(startTime + duration + 0.08);
     airSrc.stop(startTime + duration + 0.08);
-  }
-
-  _playRhodesLead(midi, startTime, duration) {
-    const freq = mtof(midi);
-    const osc = this.ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, startTime);
-
-    const harm = this.ctx.createOscillator();
-    harm.type = 'triangle';
-    harm.frequency.setValueAtTime(freq * 2, startTime);
-    const hG = this.ctx.createGain();
-    hG.gain.value = 0.14;
-
-    const env = this.ctx.createGain();
-    env.gain.setValueAtTime(0.0001, startTime);
-    env.gain.linearRampToValueAtTime(0.078, startTime + 0.022);
-    env.gain.exponentialRampToValueAtTime(0.032, startTime + duration * 0.5);
-    env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-    const pan = this.ctx.createStereoPanner();
-    pan.pan.value = -0.14;
-
-    osc.connect(env);
-    harm.connect(hG);
-    hG.connect(env);
-    env.connect(pan);
-    pan.connect(this.dryBus);
-    pan.connect(this.reverbSend);
-    pan.connect(this.delaySend);
-
-    osc.start(startTime);
-    harm.start(startTime);
-    osc.stop(startTime + duration + 0.06);
-    harm.stop(startTime + duration + 0.06);
   }
 
   _playSubBass(midi, startTime, duration) {
@@ -519,9 +486,9 @@ export class HindiLofiPlayer {
     const section = SECTIONS[secIdx];
     const chord = section.chords[barInSec];
 
-    // 1. Warm sub-bass + Rhodes lush pad chord
+    // 1. Warm sub-bass + soft string pad chord
     this._playSubBass(chord.root, now, barDur * 0.94);
-    this._playRhodesChord(chord.notes, now, barDur * 0.98);
+    this._playPadChord(chord.notes, now, barDur * 0.98);
 
     // 2. Gentle acoustic guitar arpeggio (classic unplugged Hindi lo-fi texture)
     if (section.guitarArp) {
@@ -550,16 +517,12 @@ export class HindiLofiPlayer {
       }
     }
 
-    // 4. Lyrical lead melody (Bansuri flute or warm Rhodes)
+    // 4. Lyrical lead melody (bansuri flute)
     const phrase = section.melody[barInSec];
     if (phrase) {
       phrase.forEach(([bOff, midi, durBeats, slide]) => {
         const t = now + beat * bOff;
-        if (section.lead === 'bansuri') {
-          this._playBansuri(midi, t, beat * durBeats, slide);
-        } else {
-          this._playRhodesLead(midi, t, beat * durBeats);
-        }
+        this._playBansuri(midi, t, beat * durBeats, slide || 0);
       });
     }
 
