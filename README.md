@@ -21,6 +21,8 @@ If your browser blocks the built-in radio from starting automatically, tap **Tap
 
 The scene fills the window. On very wide or tall screens a blurred copy of the scene fills the space around the art instead of black bars. After a few still seconds the title, scene row, and buttons fade away so only the scene remains; move the pointer, tap, or press a key to bring them back. Press **F** for full screen, **S** for the next scene, and **Space** to pause the animation. The player remembers the last scene you opened.
 
+On phones held upright, the scene fills the screen at full height and drifts slowly across the painting. Drag sideways to look around, swipe up or down to change scenes, and tap an empty spot to hide or show the buttons. Turn sideways and swipe left or right instead. **Controls** opens as a sheet from the bottom; drag its handle down to close it. **Tilt for depth** in Controls moves the layers as you tilt the phone (iPhone asks for motion access once). The player can be added to the Home Screen and opens full screen with its own icon; the service worker in `public/sw.js` loads fresh files when online and falls back to what it has cached when offline. Phones and tablets render at up to 1.5× resolution and about 30 frames a second, and paused scenes redraw only a few times a second to save battery.
+
 Scene thumbnails in the switcher come from `public/assets/thumbs/`. When you add a scene, save a 320 px wide JPEG of its source image there as `<scene-id>.jpg`.
 
 ```bash
