@@ -2,10 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Lo-Fi Serene</title>
     <meta name="description" content="Calm illustrated scenes with gentle motion and a built-in lo-fi radio for studying and sleeping." />
     <meta name="theme-color" content="#0b101b" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lo-Fi Serene" />
     <meta property="og:title" content="Lo-Fi Serene" />
     <meta property="og:description" content="Calm illustrated scenes with gentle motion and a built-in lo-fi radio for studying and sleeping." />
     <meta property="og:image" content="assets/thumbs/og-image.jpg" />
@@ -40,6 +46,8 @@
         aria-label="Choose diorama scene"
         aria-controls="diorama-canvas"
       ></div>
+
+      <div id="scene-dots" class="scene-dots" role="group" aria-label="Scenes"></div>
 
       <p id="toast" class="toast" role="status" aria-live="polite"></p>
 
@@ -90,6 +98,7 @@
         popover="auto"
         aria-label="Diorama controls"
       >
+        <div id="sheet-handle" class="sheet-handle" aria-hidden="true"><span></span></div>
         <div class="popover-header">
           <span class="popover-title">Controls</span>
           <button
@@ -201,14 +210,28 @@
               <span>Auto Drift</span>
             </button>
           </div>
-          <button
-            id="btn-pause"
-            class="hud-btn hud-btn--full"
-            type="button"
-            title="Pause or resume all scene animation"
-          >
-            <span>Pause</span>
-          </button>
+          <div class="control-row control-row--auto">
+            <button
+              id="btn-pause"
+              class="hud-btn"
+              type="button"
+              title="Pause or resume all scene animation"
+            >
+              <span>Pause</span>
+            </button>
+            <button id="btn-tilt" class="hud-btn" type="button" aria-pressed="false" hidden>
+              <span class="dot" aria-hidden="true"></span>
+              <span>Tilt for depth</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="app-section" class="control-section" aria-label="Install" hidden>
+          <h2 class="section-label">App</h2>
+          <button id="btn-install" class="hud-btn hud-btn--full" type="button" hidden>Add to Home Screen</button>
+          <p id="install-hint" class="install-hint" hidden>
+            To use it like an app, tap <strong>Share</strong> in Safari, then <strong>Add to Home Screen</strong>.
+          </p>
         </section>
 
         <section id="terrace-controls" class="control-section" aria-label="Terrace interactions" hidden>

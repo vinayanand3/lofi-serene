@@ -78,13 +78,25 @@ const terraceControls = document.getElementById('terrace-controls');
 const btnTerraceLamp = document.getElementById('btn-terrace-lamp');
 const btnNextStars = document.getElementById('btn-next-stars');
 const btnFullscreen = document.getElementById('btn-fullscreen');
+const btnTilt = document.getElementById('btn-tilt');
+const btnInstall = document.getElementById('btn-install');
+const installHint = document.getElementById('install-hint');
+const appSection = document.getElementById('app-section');
+const sceneDotsEl = document.getElementById('scene-dots');
+const sheetHandle = document.getElementById('sheet-handle');
+
+const coarsePointer = window.matchMedia('(pointer: coarse)');
+// Phones and tablets: cap resolution and frame rate to save battery.
+const lowPower = coarsePointer.matches;
+// Portrait screens show the scene at full height and drift across the wide painting.
+const IMMERSIVE_MAX_ASPECT = 0.9;
 
 let toastTimer = null;
-function showToast(msg) {
+function showToast(msg, ms = 2200) {
   toastEl.textContent = msg;
   toastEl.classList.add('visible');
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toastEl.classList.remove('visible'), 2200);
+  toastTimer = window.setTimeout(() => toastEl.classList.remove('visible'), ms);
 }
 
 /**
@@ -211,7 +223,7 @@ async function init() {
     alpha: true,
   });
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.04;
@@ -321,6 +333,25 @@ async function init() {
   let baseW = baseH * imgAspect;
   let frustumW = baseW;
   let frustumH = baseH;
+
+  // Immersive portrait view: the art fills the screen height and the visible window pans across it.
+  let immersive = false;
+  let viewW = 1;
+  let viewH = 1;
+  let fullPxW = 1;
+  let panPx = 0;
+  let panRangePx = 0;
+  let panPhase = 0;
+  let panDragging = false;
+  let panHoldUntil = 0;
+  let lastInteract = 0;
+  const PAN_PERIOD = 140; // seconds for one slow sweep across and back
+
+  function applyViewOffset() {
+    if (!immersive) return;
+    panPx = Math.max(-panRangePx, Math.min(panRangePx, panPx));
+    camera.setViewOffset(fullPxW, viewH, (fullPxW - viewW) / 2 + panPx, 0, viewW, viewH);
+  }
   let layerGroup = new THREE.Group();
   scene.add(layerGroup);
   let layerMaterials = [];
@@ -330,6 +361,7 @@ async function init() {
   const sound = new TeahouseSoundscape();
   let autoDrift = true;
   let paused = false;
+  let syncDotsHook = null;
   let simTime = 0;
   let sceneStartTime = 0;
   let moodIndex = 0;
@@ -409,10 +441,15 @@ async function init() {
     renderer.setSize(width, height, false);
     const vpAspect = width / Math.max(1, height);
     camera.aspect = vpAspect;
+    camera.clearViewOffset();
     camera.updateProjectionMatrix();
 
     frustumH = 2 * Math.tan(THREE.MathUtils.degToRad(FOV_DEG * 0.5)) * CAM_Z;
     frustumW = frustumH * vpAspect;
+    viewW = width;
+    viewH = height;
+    immersive = vpAspect < IMMERSIVE_MAX_ASPECT;
+    stage.classList.toggle('is-immersive', immersive);
 
     // Fill the screen: start from contain-fit, then grow toward cover, cropping at most
     // (MAX_FILL - 1) of the artwork. Wider gaps show the blurred backdrop instead of black bars.
@@ -424,9 +461,20 @@ async function init() {
       baseW = baseH * imgAspect;
     }
     const coverScale = Math.max(frustumW / baseW, frustumH / baseH);
-    const fill = Math.min(coverScale, MAX_FILL);
+    const fill = immersive ? coverScale : Math.min(coverScale, MAX_FILL);
     baseW *= fill;
     baseH *= fill;
+
+    if (immersive) {
+      // the full projection spans the whole painting; the screen is a window onto part of it
+      fullPxW = width * (baseW / frustumW);
+      panRangePx = Math.max(0, (fullPxW - width) / 2);
+      camera.aspect = fullPxW / height;
+      applyViewOffset();
+    } else {
+      panPx = 0;
+      panRangePx = 0;
+    }
 
     layerMeshes.forEach(({ mesh, z }) => {
       const s = ((CAM_Z - z) / CAM_Z) * OVERSCAN;
@@ -590,7 +638,10 @@ async function init() {
     // Update UI headers & active pill state
     titleNativeEl.textContent = manifest.nativeTitle || manifest.region;
     titleEnEl.textContent = manifest.title;
-    titleSubEl.textContent = manifest.subtitle;
+    // touch screens: drop the mouse hint and say "tap" instead of "click"
+    titleSubEl.textContent = coarsePointer.matches
+      ? (manifest.subtitle || '').replace(/Move cursor for parallax\s*·\s*/i, '').replace(/\bClick\b/g, 'Tap')
+      : manifest.subtitle;
     sceneSwitcherEl.querySelectorAll('button').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.sceneId === manifest.id));
     });
@@ -605,6 +656,7 @@ async function init() {
 
     loadingEl.classList.add('hidden');
     document.title = `${manifest.title} · Lo-Fi Serene`;
+    syncDotsHook?.(manifest.id);
     savePrefs({ scene: manifest.id });
     // replay the title card entrance
     titleCardEl.classList.remove('is-entering');
@@ -653,12 +705,13 @@ async function init() {
     const rect = canvas.getBoundingClientRect();
     const imgW = rect.width * (baseW / frustumW);
     const imgH = rect.height * (baseH / frustumH);
-    const u = 0.5 + (clientX - (rect.left + rect.width / 2)) / imgW;
+    const u = 0.5 + (clientX - (rect.left + rect.width / 2) + (immersive ? panPx : 0)) / imgW;
     const v = 0.5 + (clientY - (rect.top + rect.height / 2)) / imgH;
     return { u, v };
   }
 
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
     const rect = canvas.getBoundingClientRect();
     const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
@@ -677,8 +730,14 @@ async function init() {
   });
 
   canvas.addEventListener('pointerdown', (e) => {
-    if (!currentManifest) return;
-    const { u, v } = screenToImageUv(e.clientX, e.clientY);
+    // touch and pen go through the gesture handler (tap, drag to look around, swipe)
+    if (e.pointerType === 'mouse') handleSceneTap(e.clientX, e.clientY);
+  });
+
+  /** Run the scene's tap interactions at a screen point. Returns true when something responded. */
+  function handleSceneTap(clientX, clientY) {
+    if (!currentManifest) return false;
+    const { u, v } = screenToImageUv(clientX, clientY);
     const t = simTime;
     const a = currentManifest.anchors;
     const fx = currentManifest.effects || {};
@@ -688,10 +747,13 @@ async function init() {
     if (fx.terraceInteractions) {
       if (Math.hypot((u - lu) * imgAspect, v - lv) < 0.055) {
         toggleTerraceLamp();
-      } else if (v < currentManifest.regions.skyMaxV) {
-        nextConstellation();
+        return true;
       }
-      return;
+      if (v < currentManifest.regions.skyMaxV) {
+        nextConstellation();
+        return true;
+      }
+      return false;
     }
 
     if (Math.hypot((u - lu) * 1.4, v - lv) < 0.14) {
@@ -702,7 +764,7 @@ async function init() {
       lanternPulse = 1.0;
       sound.playLanternChime();
       showToast(fx.pendulumLantern ? 'Lantern swayed gently in the breeze' : 'Warm light glowed brighter');
-      return;
+      return true;
     }
 
     // 2. Secondary diya / storm lantern / stone lantern
@@ -711,7 +773,7 @@ async function init() {
       stonePulse = 1.0;
       sound.playCandleFlare();
       showToast('Warm flame flickered softly');
-      return;
+      return true;
     }
 
     // 3. Tea / chai / coffee cup
@@ -720,7 +782,7 @@ async function init() {
       teaSwirl = 1.0;
       sound.playCandleFlare();
       showToast('Warm steam curled upward');
-      return;
+      return true;
     }
 
     // 4. Water / backwater lagoon / mountain lake click ripple
@@ -733,8 +795,10 @@ async function init() {
       rippleCursor = (rippleCursor + 1) % 4;
       sound.playWaterDrop();
       showToast('Ripples drifted across the calm water');
+      return true;
     }
-  });
+    return false;
+  }
 
   // --- HUD Controls ---
   btnTorch.addEventListener('click', () => {
@@ -886,7 +950,7 @@ async function init() {
 
   // --- Calm mode: fade the interface after a few still seconds so only the scene remains ---
   let idleTimer = null;
-  const IDLE_MS = 4500;
+  const IDLE_MS = lowPower ? 6000 : 4500;
   function wake() {
     stage.classList.remove('is-idle');
     clearTimeout(idleTimer);
@@ -911,10 +975,233 @@ async function init() {
       stage.classList.add('is-idle');
     }, IDLE_MS);
   }
-  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
-    window.addEventListener(ev, wake, { passive: true })
+  function sleepUi() {
+    clearTimeout(idleTimer);
+    stage.classList.add('is-idle');
+  }
+  window.addEventListener('pointermove', (e) => e.pointerType === 'mouse' && wake(), { passive: true });
+  window.addEventListener(
+    'pointerdown',
+    (e) => {
+      lastInteract = performance.now();
+      // taps on the scene itself toggle the interface (handled by the gesture code below)
+      if (e.pointerType !== 'mouse' && e.target === canvas) return;
+      wake();
+    },
+    { passive: true }
   );
+  ['keydown', 'wheel'].forEach((ev) => window.addEventListener(ev, wake, { passive: true }));
   wake();
+
+  // --- Scene paging (swipe and page dots) ---
+  function goToScene(dir) {
+    const i = scenesList.findIndex((x) => x.id === currentManifest?.id);
+    const next = scenesList[(i + dir + scenesList.length) % scenesList.length];
+    if (next && next.id !== currentManifest?.id) loadSceneById(next.id, false);
+  }
+
+  const dotButtons = scenesList.map((s) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'scene-dot';
+    dot.dataset.sceneId = s.id;
+    dot.setAttribute('aria-label', `${s.badge}: ${s.title}`);
+    dot.addEventListener('click', () => {
+      if (currentManifest?.id !== s.id) loadSceneById(s.id, false);
+    });
+    sceneDotsEl?.appendChild(dot);
+    return dot;
+  });
+  function syncDots(id) {
+    dotButtons.forEach((d) => {
+      if (d.dataset.sceneId === id) d.setAttribute('aria-current', 'true');
+      else d.removeAttribute('aria-current');
+    });
+  }
+  syncDotsHook = syncDots;
+
+  // --- Touch gestures on the scene ---
+  // Portrait: drag sideways to look around the painting, swipe up or down to change scene.
+  // Landscape: swipe left or right to change scene. A still tap runs the scene's interactions,
+  // or shows and hides the interface.
+  const gesture = { id: null, x0: 0, y0: 0, t0: 0, pan0: 0, mode: null, lastX: 0, lastT: 0, vx: 0 };
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || gesture.id !== null) return;
+    gesture.id = e.pointerId;
+    gesture.x0 = gesture.lastX = e.clientX;
+    gesture.y0 = e.clientY;
+    gesture.t0 = gesture.lastT = performance.now();
+    gesture.pan0 = panPx;
+    gesture.mode = null;
+    gesture.vx = 0;
+    canvas.setPointerCapture?.(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== gesture.id) return;
+    const dx = e.clientX - gesture.x0;
+    const dy = e.clientY - gesture.y0;
+    if (!gesture.mode && Math.hypot(dx, dy) > 10) {
+      const horizontal = Math.abs(dx) > Math.abs(dy);
+      if (immersive && horizontal && panRangePx > 0) {
+        gesture.mode = 'pan';
+        panDragging = true;
+      } else {
+        gesture.mode = 'swipe';
+      }
+    }
+    if (gesture.mode === 'pan') {
+      const now = performance.now();
+      gesture.vx = (e.clientX - gesture.lastX) / Math.max(1, now - gesture.lastT);
+      gesture.lastX = e.clientX;
+      gesture.lastT = now;
+      panPx = gesture.pan0 - dx;
+      applyViewOffset();
+    }
+  });
+  function endGesture(e, cancelled = false) {
+    if (e.pointerId !== gesture.id) return;
+    const dx = e.clientX - gesture.x0;
+    const dy = e.clientY - gesture.y0;
+    const dt = performance.now() - gesture.t0;
+    if (gesture.mode === 'pan') {
+      panDragging = false;
+      // a little glide after letting go, then the slow drift resumes from here
+      panPx -= gesture.vx * 220;
+      applyViewOffset();
+      panHoldUntil = simTime + 8;
+      panPhase = Math.asin(Math.max(-1, Math.min(1, panPx / Math.max(1, panRangePx * 0.92))));
+    } else if (gesture.mode === 'swipe' && !cancelled) {
+      const primary = immersive ? dy : dx;
+      if (Math.abs(primary) > 60 || Math.abs(primary) / Math.max(1, dt) > 0.5) {
+        goToScene(primary < 0 ? 1 : -1);
+        if (!swipeHintShown) markSwipeHintShown();
+      }
+    } else if (!gesture.mode && !cancelled && dt < 500) {
+      if (!handleSceneTap(e.clientX, e.clientY)) {
+        if (stage.classList.contains('is-idle')) wake();
+        else sleepUi();
+      }
+    }
+    gesture.id = null;
+    gesture.mode = null;
+  }
+  canvas.addEventListener('pointerup', (e) => endGesture(e));
+  canvas.addEventListener('pointercancel', (e) => endGesture(e, true));
+
+  let swipeHintShown = Boolean(loadPrefs().swipeHint);
+  function markSwipeHintShown() {
+    swipeHintShown = true;
+    savePrefs({ swipeHint: true });
+  }
+  if (coarsePointer.matches && !swipeHintShown) {
+    window.setTimeout(() => {
+      if (swipeHintShown) return;
+      showToast(immersive ? 'Swipe up or down for the next scene · drag sideways to look around' : 'Swipe left or right for the next scene', 4200);
+      markSwipeHintShown();
+    }, 2500);
+  }
+
+  // --- Controls as a bottom sheet on phones: drag the handle down to close ---
+  if (sheetHandle && controlsPopover) {
+    let startY = null;
+    const sheetDrag = (y) => {
+      const d = Math.max(0, y - startY);
+      controlsPopover.style.transform = `translateY(${d}px)`;
+      return d;
+    };
+    sheetHandle.addEventListener('pointerdown', (e) => {
+      startY = e.clientY;
+      controlsPopover.style.transition = 'none';
+      sheetHandle.setPointerCapture?.(e.pointerId);
+    });
+    sheetHandle.addEventListener('pointermove', (e) => {
+      if (startY !== null) sheetDrag(e.clientY);
+    });
+    const release = (e) => {
+      if (startY === null) return;
+      const d = Math.max(0, e.clientY - startY);
+      startY = null;
+      controlsPopover.style.transition = '';
+      controlsPopover.style.transform = '';
+      if (d > 70) controlsPopover.hidePopover?.();
+    };
+    sheetHandle.addEventListener('pointerup', release);
+    sheetHandle.addEventListener('pointercancel', release);
+  }
+
+  // --- Tilt for depth (phones and tablets) ---
+  const tiltSupported = coarsePointer.matches && 'DeviceOrientationEvent' in window;
+  let tiltOn = false;
+  let tiltBase = null;
+  function onOrientation(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!tiltBase) tiltBase = { beta: e.beta, gamma: e.gamma };
+    const x = Math.max(-1, Math.min(1, (e.gamma - tiltBase.gamma) / 18));
+    const y = Math.max(-1, Math.min(1, (e.beta - tiltBase.beta) / 18));
+    targetPointer.set(x, -y);
+  }
+  async function setTilt(on) {
+    if (on && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== 'granted') {
+          showToast('Motion access was not allowed');
+          on = false;
+        }
+      } catch {
+        on = false;
+      }
+    }
+    tiltOn = on;
+    tiltBase = null;
+    if (on) window.addEventListener('deviceorientation', onOrientation);
+    else {
+      window.removeEventListener('deviceorientation', onOrientation);
+      targetPointer.set(0, 0);
+    }
+    btnTilt?.setAttribute('aria-pressed', String(on));
+    savePrefs({ tilt: on });
+  }
+  if (btnTilt) {
+    btnTilt.hidden = !tiltSupported;
+    btnTilt.addEventListener('click', () => {
+      setTilt(!tiltOn);
+      showToast(tiltOn ? 'Tilt your phone to look into the scene' : 'Tilt off');
+    });
+    // Android needs no permission, so a saved choice can resume right away
+    if (tiltSupported && loadPrefs().tilt && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      setTilt(true);
+    }
+  }
+
+  // --- Add to Home Screen ---
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    if (btnInstall) btnInstall.hidden = false;
+    if (appSection) appSection.hidden = false;
+  });
+  btnInstall?.addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    btnInstall.hidden = true;
+  });
+  if (!standalone && isIOS && installHint && appSection) {
+    installHint.hidden = false;
+    appSection.hidden = false;
+  }
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 
   // Load initial scene
   if (initialScene) await loadSceneById(initialScene.id, true);
@@ -935,8 +1222,14 @@ async function init() {
 
   const clock = new THREE.Clock();
 
-  function animate() {
+  let lastFrame = 0;
+  function animate(now = 0) {
     requestAnimationFrame(animate);
+    // Battery care: about 30 fps on phones and tablets, and a trickle while paused.
+    const busy = panDragging || now - lastInteract < 1200;
+    const interval = paused && !busy ? 250 : lowPower ? 1000 / 30 : 0;
+    if (interval && now - lastFrame < interval - 2) return;
+    lastFrame = now;
     const dt = Math.min(clock.getDelta(), 0.05);
     if (!paused) {
       simTime += dt;
@@ -957,6 +1250,15 @@ async function init() {
     camera.position.x = camX;
     camera.position.y = camY;
     camera.lookAt(camX * 0.22, camY * 0.22, -0.4);
+
+    if (immersive) {
+      if (!panDragging && simTime > panHoldUntil && m > 0) {
+        panPhase += dt * ((Math.PI * 2) / PAN_PERIOD);
+        const target = Math.sin(panPhase) * panRangePx * 0.92;
+        panPx += (target - panPx) * Math.min(1, dt * 1.5);
+      }
+      applyViewOffset();
+    }
 
     sound.setParallaxPan(smoothPointer.x + driftX);
 

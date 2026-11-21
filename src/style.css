@@ -217,13 +217,13 @@ body {
   transition-property: opacity, transform, background, border-color, color, box-shadow;
 }
 
-#stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher) {
+#stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher, .scene-dots) {
   opacity: 0;
   pointer-events: none;
   transition: opacity 1200ms var(--ease-calm);
 }
 
-#stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher) * {
+#stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher, .scene-dots) * {
   pointer-events: none;
 }
 
@@ -345,6 +345,7 @@ body {
 }
 
 .corner-btn {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1061,87 +1062,201 @@ body {
   }
 }
 
+/* --- Page dots --- */
+.scene-dots {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: none;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(10, 14, 24, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: opacity 600ms var(--ease-calm);
+}
+
+.scene-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scene-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 240, 220, 0.42);
+  transition: width 260ms var(--ease-calm), background 260ms ease;
+}
+
+.scene-dot[aria-current='true']::before {
+  width: 20px;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber-glow);
+}
+
+.scene-dot:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 0;
+  border-radius: 999px;
+}
+
+/* --- Phones in portrait: the scene fills the screen and drifts across the painting --- */
 @media (max-width: 820px) and (orientation: portrait) {
   #stage {
     height: 100dvh;
-    isolation: isolate;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: stretch;
-    gap: 14px;
-    padding-block: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-bottom));
-  }
-
-  .scene-grain {
-    background: none;
-  }
-
-  /* the interface sits beside the art on phones, so keep it visible */
-  #stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher) {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  #stage.is-idle :is(.title-card, .scene-switcher, .corner-launcher) * {
-    pointer-events: auto;
-  }
-
-  .title-card {
-    position: static;
-    order: 1;
-    margin-inline: 16px;
-    padding: 0;
-    border: 0;
-    background: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: none;
-    max-width: none;
-    text-shadow: 0 1px 8px #0b101b;
-  }
-
-  .title-en {
-    font-size: clamp(18px, 5vw, 23px);
-    line-height: 1.2;
   }
 
   #diorama-canvas {
-    order: 2;
-    width: 100%;
-    height: auto;
-    max-height: none;
-    aspect-ratio: 16 / 9;
-    flex-shrink: 0;
-    border-radius: 14px;
-    width: calc(100% - 24px);
-    margin-inline: 12px;
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 224, 178, 0.08);
+    touch-action: none;
+    cursor: default;
   }
 
-  .scene-switcher {
-    position: relative;
-    inset: auto;
-    order: 3;
-    transform: none;
-    width: auto;
+  .scene-grain {
+    background:
+      linear-gradient(180deg, rgba(6, 9, 16, 0.62) 0%, rgba(6, 9, 16, 0) 26%),
+      linear-gradient(0deg, rgba(6, 9, 16, 0.66) 0%, rgba(6, 9, 16, 0) 30%);
+  }
+
+  .title-card {
+    top: max(18px, calc(env(safe-area-inset-top) + 10px));
+    left: 20px;
+    right: 20px;
     max-width: none;
-    justify-content: flex-start;
-    margin-inline: 12px;
+  }
+
+  .title-en {
+    font-size: clamp(24px, 7vw, 30px);
+  }
+
+  /* the pill row gives way to swipes and page dots */
+  .scene-switcher {
+    display: none;
   }
 
   .corner-launcher {
-    position: static;
-    order: 4;
-    justify-content: center;
+    left: 50%;
+    right: auto;
+    bottom: max(18px, calc(env(safe-area-inset-bottom) + 8px));
+    transform: translateX(-50%);
   }
 
-  .controls-popover {
-    inset: 0;
-    margin: auto;
-    width: min(360px, calc(100% - 32px));
-    height: fit-content;
-    max-height: calc(100dvh - 32px);
-    overflow-y: auto;
+  #stage.is-idle .scene-dots {
+    opacity: 0;
   }
+
+  .scene-dots {
+    display: flex;
+    bottom: max(78px, calc(env(safe-area-inset-bottom) + 68px));
+  }
+
+  .toast {
+    bottom: max(124px, calc(env(safe-area-inset-bottom) + 114px));
+    max-width: calc(100vw - 32px);
+    text-align: center;
+  }
+}
+
+/* Landscape phones: dots instead of the pill row too */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .scene-switcher {
+    display: none;
+  }
+  .scene-dots {
+    display: flex;
+    bottom: 20px;
+    left: 24px;
+    transform: none;
+  }
+  #stage.is-idle .scene-dots {
+    opacity: 0;
+  }
+}
+
+/* --- Controls bottom sheet on phones --- */
+.sheet-handle {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .controls-popover {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 82dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    padding: 6px 18px max(18px, calc(env(safe-area-inset-bottom) + 10px));
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+    transition-duration: 0.32s;
+    transition-timing-function: var(--ease-calm);
+
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateY(100%);
+    }
+  }
+
+  .controls-popover:is(:popover-open, .\:popover-open) {
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateY(0);
+
+      @starting-style {
+        transform: translateY(100%);
+      }
+    }
+  }
+
+  .controls-popover::backdrop {
+    background: rgba(3, 5, 10, 0.45);
+  }
+
+  .sheet-handle {
+    display: grid;
+    place-items: center;
+    height: 22px;
+    margin: 0 -18px -4px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .sheet-handle span {
+    width: 38px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 240, 220, 0.3);
+  }
+}
+
+.control-row--auto {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+.hud-btn[hidden],
+#app-section[hidden],
+.install-hint[hidden] {
+  display: none;
+}
+
+.install-hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.install-hint strong {
+  color: var(--text);
+  font-weight: 500;
 }
