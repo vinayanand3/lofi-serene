@@ -4,11 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lo-Fi Serene</title>
+    <meta name="description" content="Calm illustrated scenes with gentle motion and a built-in lo-fi radio for studying and sleeping." />
+    <meta name="theme-color" content="#0b101b" />
+    <meta property="og:title" content="Lo-Fi Serene" />
+    <meta property="og:description" content="Calm illustrated scenes with gentle motion and a built-in lo-fi radio for studying and sleeping." />
+    <meta property="og:image" content="assets/thumbs/og-image.jpg" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b101b'/%3E%3Crect x='22' y='16' width='20' height='30' rx='9' fill='%23ffb454'/%3E%3Crect x='29' y='9' width='6' height='7' rx='2' fill='%23c25e1e'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap"
+    />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <main id="stage" aria-label="Interactive 2.5D Lo-Fi Diorama">
       <canvas id="diorama-canvas"></canvas>
+      <div class="scene-veil" aria-hidden="true"></div>
+      <div class="scene-grain" aria-hidden="true"></div>
       <button id="btn-torch" class="scene-hotspot" type="button" aria-label="Flashlight"
         aria-pressed="false" title="Switch flashlight on or off" hidden></button>
 
@@ -42,6 +56,19 @@
           title="Pause or resume scene animation"
         >
           <span aria-hidden="true">❚❚</span>
+        </button>
+        <button
+          id="btn-fullscreen"
+          class="corner-btn"
+          type="button"
+          aria-label="Full screen"
+          aria-pressed="false"
+          title="Full screen (F)"
+          hidden
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+            <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
+          </svg>
         </button>
         <button
           id="btn-controls-trigger"
@@ -94,13 +121,13 @@
               class="hud-btn"
               type="button"
               aria-pressed="true"
-              title="Toggle YouTube Lo-Fi Radio music"
+              title="Play or pause the lo-fi radio"
             >
               <span class="dot" aria-hidden="true"></span>
               <span>Lo-Fi Radio</span>
             </button>
           </div>
-          <div class="yt-radio-bar">
+          <div class="volume-row">
             <label class="yt-vol-label" for="radio-volume">
               <span>Volume</span>
               <input
@@ -110,39 +137,46 @@
                 min="0"
                 max="100"
                 value="70"
-                aria-label="Lo-Fi Radio volume"
+                aria-label="Music volume"
               />
             </label>
-            <button
-              id="btn-yt-mini"
-              class="yt-mini-toggle"
-              type="button"
-              title="Show or hide the YouTube mini-player (to click Play or Skip Ad)"
-            >
-              Show Player
-            </button>
-            <a
-              id="yt-source-link"
-              class="yt-link"
-              href="https://www.youtube.com/watch?v=t8yVk0bm684"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open current music source on YouTube"
-            >
-              ↗
-            </a>
           </div>
-          <form id="yt-url-form" class="yt-url-form" autocomplete="off">
-            <input
-              id="yt-url-input"
-              class="yt-url-input"
-              type="text"
-              inputmode="url"
-              placeholder="Paste any YouTube link…"
-              aria-label="YouTube music link"
-            />
-            <button class="yt-url-submit" type="submit">Play</button>
-          </form>
+          <details class="yt-details">
+            <summary>Use your own music (YouTube)</summary>
+            <div class="yt-details-body">
+              <div class="yt-radio-bar yt-radio-bar--tools">
+                <button
+                  id="btn-yt-mini"
+                  class="yt-mini-toggle"
+                  type="button"
+                  title="Show or hide the YouTube mini-player (to click Play or Skip Ad)"
+                >
+                  Show Player
+                </button>
+                <a
+                  id="yt-source-link"
+                  class="yt-link"
+                  href="https://www.youtube.com/watch?v=t8yVk0bm684"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open current music source on YouTube"
+                >
+                  ↗
+                </a>
+              </div>
+              <form id="yt-url-form" class="yt-url-form" autocomplete="off">
+                <input
+                  id="yt-url-input"
+                  class="yt-url-input"
+                  type="text"
+                  inputmode="url"
+                  placeholder="Paste any YouTube link…"
+                  aria-label="YouTube music link"
+                />
+                <button class="yt-url-submit" type="submit">Play</button>
+              </form>
+            </div>
+          </details>
         </section>
 
         <section class="control-section" aria-label="Atmosphere and motion">
@@ -184,6 +218,11 @@
             <button id="btn-next-stars" class="hud-btn" type="button">Next constellation</button>
           </div>
         </section>
+
+        <p class="shortcut-hint">
+          <kbd>F</kbd> full screen <span aria-hidden="true">·</span> <kbd>S</kbd> next scene
+          <span aria-hidden="true">·</span> <kbd>Space</kbd> pause
+        </p>
       </aside>
 
       <div id="yt-radio-wrap" class="yt-radio-wrap" aria-hidden="true">
@@ -193,7 +232,8 @@
       <div id="loading" class="loading-overlay">
         <div class="loading-inner">
           <div class="loading-lantern"></div>
-          <p>Loading scene…</p>
+          <div class="loading-wordmark">Lo-Fi Serene</div>
+          <p>Lighting the lanterns…</p>
         </div>
       </div>
     </main>

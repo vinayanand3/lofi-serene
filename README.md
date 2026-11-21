@@ -19,6 +19,10 @@ Open the address printed by Vite. The player starts on **India · Terrace**, and
 
 If your browser blocks the built-in radio from starting automatically, tap **Tap for sound** to start it.
 
+The scene fills the window. On very wide or tall screens a blurred copy of the scene fills the space around the art instead of black bars. After a few still seconds the title, scene row, and buttons fade away so only the scene remains; move the pointer, tap, or press a key to bring them back. Press **F** for full screen, **S** for the next scene, and **Space** to pause the animation. The player remembers the last scene you opened.
+
+Scene thumbnails in the switcher come from `public/assets/thumbs/`. When you add a scene, save a 320 px wide JPEG of its source image there as `<scene-id>.jpg`.
+
 ```bash
 npm run build
 npm run preview
