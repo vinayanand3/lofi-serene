@@ -19,6 +19,25 @@ import { HindiLofiPlayer } from './audio/hindiLofi.js';
 const CAM_Z = 6.2;
 const FOV_DEG = 36;
 const OVERSCAN = 1.04;
+// How far past "contain" the artwork may grow to fill the screen (1.12 = crop at most ~11%).
+const MAX_FILL = 1.12;
+const PREFS_KEY = 'lofi-serene.prefs';
+
+function loadPrefs() {
+  try {
+    return JSON.parse(window.localStorage.getItem(PREFS_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(patch) {
+  try {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), ...patch }));
+  } catch {
+    /* storage unavailable: preferences last for this visit only */
+  }
+}
 
 const MOOD_LABELS = ['Mood: Default', 'Mood: Deep Night', 'Mood: Warm Glow'];
 
@@ -34,6 +53,7 @@ const toastEl = document.getElementById('toast');
 const titleNativeEl = document.getElementById('title-native');
 const titleEnEl = document.getElementById('title-en');
 const titleSubEl = document.getElementById('title-sub');
+const titleCardEl = document.querySelector('.title-card');
 const sceneSwitcherEl = document.getElementById('scene-switcher');
 const stage = document.getElementById('stage');
 const portraitLayout = window.matchMedia('(max-width: 820px) and (orientation: portrait)');
@@ -57,6 +77,7 @@ const btnTorch = document.getElementById('btn-torch');
 const terraceControls = document.getElementById('terrace-controls');
 const btnTerraceLamp = document.getElementById('btn-terrace-lamp');
 const btnNextStars = document.getElementById('btn-next-stars');
+const btnFullscreen = document.getElementById('btn-fullscreen');
 
 let toastTimer = null;
 function showToast(msg) {
@@ -117,7 +138,8 @@ function setupToolbarAccessibility(bar, prefix = 'hud-tip') {
   // both interest invokers and CSS anchor positioning are natively supported.
   if (
     'interestForElement' in HTMLButtonElement.prototype &&
-    CSS.supports('position-area', 'block-start')
+    CSS.supports('position-area', 'block-start') &&
+    window.matchMedia('(hover: hover)').matches
   ) {
     items.forEach((btn, i) => {
       const text = btn.getAttribute('title')?.trim();
@@ -167,7 +189,11 @@ async function init() {
   const catalogRes = await fetch('./assets/scenes.json', { cache: 'no-cache' });
   const catalog = await catalogRes.json();
   const scenesList = catalog.scenes || [];
-  const initialScene = scenesList.find((scene) => scene.id === 'summer-terrace') ?? scenesList[0];
+  const savedScene = loadPrefs().scene;
+  const initialScene =
+    scenesList.find((scene) => scene.id === savedScene) ??
+    scenesList.find((scene) => scene.id === 'summer-terrace') ??
+    scenesList[0];
 
   function revealSelectedScene() {
     if (portraitLayout.matches) {
@@ -182,7 +208,9 @@ async function init() {
     canvas,
     antialias: true,
     powerPreference: 'high-performance',
+    alpha: true,
   });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -190,7 +218,8 @@ async function init() {
 
   // --- Scene & Camera ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b101b);
+  // Transparent: on unusual screen shapes the blurred scene backdrop shows around the art.
+  scene.background = null;
 
   const camera = new THREE.PerspectiveCamera(FOV_DEG, window.innerWidth / window.innerHeight, 0.1, 30);
   camera.position.set(0, 0, CAM_Z);
@@ -290,6 +319,8 @@ async function init() {
   let imgAspect = 16 / 9;
   let baseH = 2 * Math.tan(THREE.MathUtils.degToRad(FOV_DEG * 0.5)) * CAM_Z;
   let baseW = baseH * imgAspect;
+  let frustumW = baseW;
+  let frustumH = baseH;
   let layerGroup = new THREE.Group();
   scene.add(layerGroup);
   let layerMaterials = [];
@@ -380,10 +411,11 @@ async function init() {
     camera.aspect = vpAspect;
     camera.updateProjectionMatrix();
 
-    const frustumH = 2 * Math.tan(THREE.MathUtils.degToRad(FOV_DEG * 0.5)) * CAM_Z;
-    const frustumW = frustumH * vpAspect;
+    frustumH = 2 * Math.tan(THREE.MathUtils.degToRad(FOV_DEG * 0.5)) * CAM_Z;
+    frustumW = frustumH * vpAspect;
 
-    // Contain-fit inside the 16:9 canvas so the full artwork is always visible without cropping
+    // Fill the screen: start from contain-fit, then grow toward cover, cropping at most
+    // (MAX_FILL - 1) of the artwork. Wider gaps show the blurred backdrop instead of black bars.
     if (vpAspect <= imgAspect) {
       baseW = frustumW;
       baseH = baseW / imgAspect;
@@ -391,6 +423,10 @@ async function init() {
       baseH = frustumH;
       baseW = baseH * imgAspect;
     }
+    const coverScale = Math.max(frustumW / baseW, frustumH / baseH);
+    const fill = Math.min(coverScale, MAX_FILL);
+    baseW *= fill;
+    baseH *= fill;
 
     layerMeshes.forEach(({ mesh, z }) => {
       const s = ((CAM_Z - z) / CAM_Z) * OVERSCAN;
@@ -464,8 +500,9 @@ async function init() {
     if (!entry) return;
 
     if (!isInitial) {
-      loadingEl.querySelector('p').textContent = `Opening ${entry.title}…`;
-      loadingEl.classList.remove('hidden');
+      // soft dip to dark instead of the full loading screen
+      stage.classList.add('is-switching');
+      await new Promise((r) => setTimeout(r, reducedMotion ? 60 : 380));
     }
 
     let bundle = sceneCache.get(entry.id);
@@ -567,9 +604,13 @@ async function init() {
     updateLayout(rect.width || window.innerWidth, rect.height || window.innerHeight);
 
     loadingEl.classList.add('hidden');
-    if (!isInitial) {
-      showToast(`${manifest.title} (${manifest.badge})`);
-    }
+    document.title = `${manifest.title} · Lo-Fi Serene`;
+    savePrefs({ scene: manifest.id });
+    // replay the title card entrance
+    titleCardEl.classList.remove('is-entering');
+    void titleCardEl.offsetWidth;
+    titleCardEl.classList.add('is-entering');
+    requestAnimationFrame(() => stage.classList.remove('is-switching'));
   }
 
   // Build Scene Switcher Pills
@@ -579,8 +620,16 @@ async function init() {
     btn.className = 'scene-pill';
     btn.dataset.sceneId = s.id;
     btn.setAttribute('aria-pressed', String(s.id === initialScene?.id));
-    btn.textContent = s.badge;
-    btn.title = `Switch to ${s.title} (${s.region})`;
+    const thumb = document.createElement('img');
+    thumb.className = 'scene-thumb';
+    thumb.src = `./assets/thumbs/${s.id}.jpg`;
+    thumb.alt = '';
+    thumb.decoding = 'async';
+    thumb.loading = 'lazy';
+    const label = document.createElement('span');
+    label.textContent = s.badge;
+    btn.append(thumb, label);
+    btn.setAttribute('aria-label', `${s.badge}: ${s.title}`);
     btn.addEventListener('click', () => {
       if (currentManifest?.id !== s.id) {
         loadSceneById(s.id, false);
@@ -599,10 +648,13 @@ async function init() {
   });
   resizeObserver.observe(canvas);
 
+  /** Map a screen point to artwork UV (0..1 from the top-left), accounting for fill and crop. */
   function screenToImageUv(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const u = (clientX - rect.left) / rect.width;
-    const v = (clientY - rect.top) / rect.height;
+    const imgW = rect.width * (baseW / frustumW);
+    const imgH = rect.height * (baseH / frustumH);
+    const u = 0.5 + (clientX - (rect.left + rect.width / 2)) / imgW;
+    const v = 0.5 + (clientY - (rect.top + rect.height / 2)) / imgH;
     return { u, v };
   }
 
@@ -799,6 +851,70 @@ async function init() {
 
   btnPause.addEventListener('click', togglePause);
   btnQuickPause?.addEventListener('click', togglePause);
+
+  // --- Fullscreen ---
+  const canFullscreen = Boolean(document.fullscreenEnabled && stage.requestFullscreen);
+  if (btnFullscreen) btnFullscreen.hidden = !canFullscreen;
+  function toggleFullscreen() {
+    if (!canFullscreen) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+  btnFullscreen?.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    const on = Boolean(document.fullscreenElement);
+    btnFullscreen?.setAttribute('aria-pressed', String(on));
+    btnFullscreen?.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  });
+
+  // --- Keyboard shortcuts (F full screen, Space pause animation, S next scene) ---
+  window.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      toggleFullscreen();
+    } else if (e.key === 's' || e.key === 'S') {
+      const i = scenesList.findIndex((x) => x.id === currentManifest?.id);
+      const next = scenesList[(i + 1) % scenesList.length];
+      if (next) loadSceneById(next.id, false);
+    } else if (e.key === ' ' && !e.target.closest?.('button, a')) {
+      e.preventDefault();
+      togglePause();
+    }
+  });
+
+  // --- Calm mode: fade the interface after a few still seconds so only the scene remains ---
+  let idleTimer = null;
+  const IDLE_MS = 4500;
+  function wake() {
+    stage.classList.remove('is-idle');
+    clearTimeout(idleTimer);
+    idleTimer = window.setTimeout(() => {
+      let popoverOpen = false;
+      try {
+        popoverOpen = Boolean(controlsPopover?.matches(':popover-open'));
+      } catch {
+        popoverOpen = Boolean(controlsPopover?.classList.contains(':popover-open'));
+      }
+      // stay visible while someone is using the keyboard on a control
+      let focusInUi = false;
+      try {
+        focusInUi = Boolean(document.activeElement?.matches(':focus-visible'));
+      } catch {
+        /* :focus-visible unsupported */
+      }
+      if (popoverOpen || focusInUi) {
+        wake();
+        return;
+      }
+      stage.classList.add('is-idle');
+    }, IDLE_MS);
+  }
+  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
+    window.addEventListener(ev, wake, { passive: true })
+  );
+  wake();
 
   // Load initial scene
   if (initialScene) await loadSceneById(initialScene.id, true);
